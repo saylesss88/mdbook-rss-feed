@@ -114,7 +114,7 @@ fn main() {
         "Src dir writable: {}",
         src_dir
             .metadata()
-            .map(|m| m.permissions().readonly() == false)
+            .map(|m| !m.permissions().readonly())
             .unwrap_or(false)
     );
 
