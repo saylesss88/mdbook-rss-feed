@@ -5,7 +5,21 @@ use std::io::{self, Read, Write}; // Added for flush and Write trait
 use std::path::PathBuf;
 
 fn main() {
+    eprintln!(
+        "Running mdbook-rss-feed binary at: {}",
+        std::env::current_exe().unwrap().display()
+    );
+
     let args: Vec<String> = std::env::args().collect();
+    // Handle version
+    if args.get(1).map(|s| s.as_str()) == Some("--version")
+        || args.get(1).map(|s| s.as_str()) == Some("-V")
+    {
+        println!("mdbook-rss-feed {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
+
+    // Required by mdBook
     if args.get(1).map(|s| s.as_str()) == Some("supports") {
         println!("true");
         return;
