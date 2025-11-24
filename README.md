@@ -27,7 +27,6 @@ After Installing Globally:
 
 ```toml
 [preprocessor.rss-feed]
-command = "mdbook-rss-feed"
 ```
 
 ## Frontmatter
@@ -43,40 +42,22 @@ description: Optional short description (otherwise first paragraph is used)
 
 ### Hiding frontmatter in the rendered HTML
 
-mdBook itself does not understand YAML frontmatter and will render it as plain
-text at the top of each chapter. If you use frontmatter, you will usually want
-to pair this preprocessor with a “frontmatter stripper” so the YAML block does
-not appear on your HTML pages.
-
-One option is [`mdbook-yml-header`], which removes `--- … ---` headers before
-rendering:
-
-```bash
-cargo install mdbook-yml-header
-```
-
-`book.toml`:
-
-```toml
-[preprocessor.yml-header]
-```
+I am currently working on a crate to implement this as `mdbook-yml-header`
+wouldn't work for me.
 
 **Adding a Description for RSS Preview**
 
-The first header will be picked up for the preview, for example:
+The description in the frontmatter is what will be displayed as your file
+preview.
 
 ```md
 ---
 title: Debugging NixOS modules
 date: 2025-11-22
 author: saylesss88
-description: Chapter 9
----
-
-# Chapter 9
-
-This chapter covers debugging NixOS modules, focusing on tracing module options
+description: This chapter covers debugging NixOS modules, focusing on tracing module options
 and evaluating merges.
+---
 ```
 
 The preview should contain the above description.
