@@ -6,6 +6,9 @@ An mdBook preprocessor that generates a beautiful, full-content RSS 2.0 feed
 Perfect for blogs, documentation sites, or any mdBook that wants to be
 subscribable.
 
+This is still a WIP, I had to pin `mdbook-version: "0.4.40"` in my gh-actions
+workflow for this to work correctly.
+
 ## Features
 
 - Full HTML content in `<description>` (not just excerpts)
