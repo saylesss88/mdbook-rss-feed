@@ -73,10 +73,11 @@ The preview should contain the above description.
 mdBook does not natively parse or remove YAML frontmatter from Markdown files,
 treating it as plain text during rendering, which can result in the raw YAML
 block (e.g., ---\ntitle: "My Chapter"\n---) appearing directly in the generated
-HTML output. I am currently working on a crate to implement yaml frontmatter
-removal, I will call it `mdbook-frontmatter-strip`.
+HTML output.
 
-I will add a note to this README once it's complete.
+See:
+[mdbook-frontmatter-strip](https://crates.io/crates/mdbook-frontmatter-strip) I
+will add a note to this README once it's complete.
 
 ### License
 
