@@ -8,17 +8,28 @@ Perfect for blogs, documentation sites, or any mdBook that you want to publish.
 ## Features
 
 - Full HTML content in `<description>` (not just excerpts)
+
 - Proper XML escaping
+
 - Falls back to file modification time if no date in frontmatter
+
 - Supports `date:` in YAML frontmatter (RFC3339 or `YYYY-MM-DD`)
+
 - Respects `config.book.title`, `config.book.description`, and
   `output.html.site-url`
-- Zero-config — just drop it in `book.toml`
+
+- Zero-config, just drop it in `book.toml`
 
 ## Installation
 
 ```bash
 cargo install mdbook-rss-feed
+```
+
+Version Check:
+
+```bash
+mdbook-rss-feed --version
 ```
 
 ## Usage
@@ -30,28 +41,13 @@ After Installing Globally:
 renderers = ["html"]
 ```
 
+The `renderers = ["html"]` configuration in the `book.toml` explicitly binds the
+preprocessor to run only when mdBook uses the HTML renderer, preventing it from
+executing unnecessarily for other output formats like Markdown or PDF.
+
 ## Frontmatter
 
 ```yaml
----
-title: My Great Post
-date: 2025-11-23
-author: Jane Doe
-description: Optional short description (otherwise first paragraph is used)
----
-```
-
-### Hiding frontmatter in the rendered HTML
-
-I am currently working on a crate to implement this as `mdbook-yml-header`
-wouldn't work for me.
-
-**Adding a Description for RSS Preview**
-
-The description in the frontmatter is what will be displayed as your file
-preview.
-
-```md
 ---
 title: Debugging NixOS modules
 date: 2025-11-22
@@ -60,6 +56,21 @@ description: This chapter covers debugging NixOS modules, focusing on tracing mo
 and evaluating merges.
 ---
 ```
+
+### Hiding frontmatter in the rendered HTML
+
+mdBook does not natively parse or remove YAML frontmatter from Markdown files,
+treating it as plain text during rendering, which can result in the raw YAML
+block (e.g., ---\ntitle: "My Chapter"\n---) appearing directly in the generated
+HTML output. I am currently working on a crate to implement this, I will call it
+`mdbook-frontmatter-strip`.
+
+I will add a note to this README once it's complete.
+
+**Adding a Description for RSS Preview**
+
+The description in the frontmatter is what will be displayed as your file
+preview.
 
 The preview should contain the above description.
 
