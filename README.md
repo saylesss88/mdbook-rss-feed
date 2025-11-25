@@ -75,9 +75,8 @@ treating it as plain text during rendering, which can result in the raw YAML
 block (e.g., ---\ntitle: "My Chapter"\n---) appearing directly in the generated
 HTML output.
 
-See:
+See, this is released:
 [mdbook-frontmatter-strip](https://crates.io/crates/mdbook-frontmatter-strip) I
-will add a note to this README once it's complete.
 
 ### License
 
