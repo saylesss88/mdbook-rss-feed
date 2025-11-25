@@ -27,6 +27,7 @@ After Installing Globally:
 
 ```toml
 [preprocessor.rss-feed]
+renderers = ["html"]
 ```
 
 ## Frontmatter
