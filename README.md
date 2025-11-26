@@ -50,15 +50,37 @@ Tested against:
 After installing globally, add the following to your mdbook's `book.toml`:
 
 ```toml
+[book]
+title = "your-title"
+author = "your-author"
+language = "your-lang"
+src = "src"
+
 [preprocessor.rss-feed]
 renderers = ["html"]
+
+[output.html]
+site-url = "https://your-user.github.io"
 ```
 
 The `renderers = ["html"]` configuration in `book.toml` explicitly binds the
 preprocessor to run only when mdBook uses the HTML renderer, preventing it from
 executing unnecessarily for other output formats like Markdown or PDF.
 
+- If you don't give your book a `title`, it will be displayed as `My mdbook`.
+
+- If you don't give a `site-url`, the default is `example.com`. Use the public
+  base URL of your deployed site, `site-url = "https://your-user.github.io"` is
+  just an example of what a gh-pages site could be.
+
 ## Frontmatter
+
+Frontmatter is completely optional for this crate, it will work without it,
+removing the need for a YAML frontmatter removal tool.
+
+- Adding frontmatter becomes useful when you want to override or enrich
+  defaults: explicit `date`, a short `description` summary, or per‑chapter
+  metadata that differs from the Markdown heading/title.​
 
 ```yaml
 title: Debugging NixOS modules
@@ -85,6 +107,9 @@ If you prefer not to rely on this fallback at all, you can simply omit
 body.
 
 ### Hiding frontmatter in the rendered HTML
+
+As stated above, adding frontmatter is optional but is easy to remove with the
+following crate if you choose to add it.
 
 mdBook does not natively parse or remove YAML frontmatter from Markdown files,
 treating it as plain text during rendering, which can result in the raw YAML
