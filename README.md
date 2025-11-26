@@ -28,6 +28,8 @@ Sorry for the frequent updates, this should be close to stable now.
 
 - Zero-config, just drop it in `book.toml`
 
+- Works with or without YAML frontmatter
+
 ## Installation
 
 ```bash
@@ -60,7 +62,7 @@ src = "src"
 renderers = ["html"]
 
 [output.html]
-site-url = "https://your-user.github.io"
+site-url = "https://your-user.github.io/"
 ```
 
 The `renderers = ["html"]` configuration in `book.toml` explicitly binds the
@@ -70,17 +72,19 @@ executing unnecessarily for other output formats like Markdown or PDF.
 - If you don't give your book a `title`, it will be displayed as `My mdbook`.
 
 - If you don't give a `site-url`, the default is `example.com`. Use the public
-  base URL of your deployed site, `site-url = "https://your-user.github.io"` is
+  base URL of your deployed site, `site-url = "https://your-user.github.io/"` is
   just an example of what a gh-pages site could be.
+
+- In the above example, the RSS feed would be located at:
+  `https://your-user.github.io/rss.xml`
 
 ## Frontmatter
 
-Frontmatter is completely optional for this crate, it will work without it,
-removing the need for a YAML frontmatter removal tool.
+Frontmatter is optional, without it only the chapter title, book name, date, and
+time are listed.
 
-- Adding frontmatter becomes useful when you want to override or enrich
-  defaults: explicit `date`, a short `description` summary, or per‑chapter
-  metadata that differs from the Markdown heading/title.​
+Adding frontmatter is useful to customize any of those settings as well as add
+the author and short description.
 
 ```yaml
 title: Debugging NixOS modules
@@ -90,7 +94,18 @@ description: This chapter covers debugging NixOS modules, focusing on tracing mo
 options and evaluating merges.
 ```
 
-### How `description` is used
+### How Feed Preview is Generated
+
+The feed preview is generated from the rendered HTML of the chapter. The crate
+looks for `<p>…</p>` blocks (HTML paragraphs) and takes the first 2–3
+paragraphs, up to 800 characters total.​
+
+If your chapter starts with non-paragraph content (e.g., lists, details blocks,
+or other custom markup), the preview will begin at the first real HTML paragraph
+that appears after that content.​
+
+To override this behavior, set `description` in the YAML frontmatter; that text
+will be used as the preview when the chapter body is short.​
 
 - **Default behavior:** The RSS preview is generated from the first few
   paragraphs of the chapter body.
@@ -107,9 +122,6 @@ If you prefer not to rely on this fallback at all, you can simply omit
 body.
 
 ### Hiding frontmatter in the rendered HTML
-
-As stated above, adding frontmatter is optional but is easy to remove with the
-following crate if you choose to add it.
 
 mdBook does not natively parse or remove YAML frontmatter from Markdown files,
 treating it as plain text during rendering, which can result in the raw YAML

@@ -158,6 +158,70 @@ fn markdown_to_html(md: &str) -> String {
     html
 }
 
+/// Strip obvious leading boilerplate (TOCs, details, long definition blocks)
+/// so previews tend to start at the main intro text instead of metadata.
+fn strip_leading_boilerplate(md: &str) -> &str {
+    // Heuristic:
+    // - Skip leading blank lines
+    // - If there is a top-level heading, start after the first blank line that follows it
+    // - Otherwise, just return the original
+    let mut seen_heading = false;
+    let mut byte_idx = 0;
+    let mut acc_bytes = 0;
+
+    for (i, line) in md.lines().enumerate() {
+        let line_len_with_nl = line.len() + 1; // assume '\n' separated
+
+        // Skip initial blank lines entirely
+        if i == 0 && line.trim().is_empty() {
+            acc_bytes += line_len_with_nl;
+            continue;
+        }
+
+        if line.trim_start().starts_with('#') {
+            seen_heading = true;
+        }
+
+        if seen_heading && line.trim().is_empty() {
+            // First blank line after heading: start preview after this
+            acc_bytes += line_len_with_nl;
+            byte_idx = acc_bytes;
+            break;
+        }
+
+        acc_bytes += line_len_with_nl;
+    }
+
+    if byte_idx == 0 {
+        md
+    } else {
+        &md[byte_idx.min(md.len())..]
+    }
+}
+
+/// Take at most `max_chars` worth of UTF‑8 text from `s`.
+fn utf8_prefix(s: &str, max_chars: usize) -> &str {
+    if max_chars == 0 {
+        return "";
+    }
+
+    let mut last_byte = 0;
+
+    for (ch_idx, (byte_idx, _)) in s.char_indices().enumerate() {
+        if ch_idx == max_chars {
+            last_byte = byte_idx;
+            break;
+        }
+        last_byte = byte_idx + 1;
+    }
+
+    if last_byte == 0 || last_byte >= s.len() {
+        s
+    } else {
+        &s[..last_byte]
+    }
+}
+
 /// Take up to `max_paragraphs` <p> blocks from HTML, and cap at `max_chars` (UTF-8 safe).
 fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize) -> String {
     let mut out = String::new();
@@ -220,13 +284,14 @@ pub fn build_feed(
 
             let link = format!("{base_url}/{html_path}");
 
-            // --- Hybrid preview source selection ---
+            // --- Hybrid preview source selection with heuristics ---
             let content_trimmed = article.content.trim();
 
             // Count chars to decide if body is "very short"
             let body_len = content_trimmed.chars().count();
 
-            let source_md =
+            // 1) Choose base markdown (body vs description)
+            let mut source_md =
                 if body_len >= MIN_BODY_PREVIEW_CHARS || article.fm.description.is_none() {
                     // Use chapter body by default when it has enough content,
                     // or when there is no description at all.
@@ -235,13 +300,20 @@ pub fn build_feed(
                     // Body is empty/very short AND description exists → use description.
                     article.fm.description.as_deref().unwrap_or(content_trimmed)
                 };
-            // --------------------------------------
+
+            // 2) Strip obvious leading boilerplate so we start near the intro text
+            source_md = strip_leading_boilerplate(source_md);
+
+            // 3) Only consider the first slice of markdown for preview
+            const PREVIEW_MD_SLICE_CHARS: usize = 4000;
+            let source_md_slice = utf8_prefix(source_md, PREVIEW_MD_SLICE_CHARS);
+            // -------------------------------------------------------
 
             // Convert chosen markdown source → HTML
-            let raw_html = markdown_to_html(source_md);
+            let raw_html = markdown_to_html(source_md_slice);
 
-            // Use first few paragraphs as preview, capped to a reasonable length
-            let preview = html_first_paragraphs(&raw_html, 2, 800);
+            // Use first few paragraphs (up to 3) as preview, capped to a reasonable length
+            let preview = html_first_paragraphs(&raw_html, 3, 800);
 
             let mut item = ItemBuilder::default();
 
