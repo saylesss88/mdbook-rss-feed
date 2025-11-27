@@ -5,8 +5,6 @@ Atom) for your book, with HTML previews for each chapter.
 
 Perfect for blogs, documentation sites, or any mdBook that you want to publish.
 
-Sorry for the frequent updates, this should be close to stable now.
-
 ## Features
 
 - HTML preview in `<description>` built from the first paragraphs of each
