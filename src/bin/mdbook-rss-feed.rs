@@ -61,7 +61,7 @@ fn main() {
     }
 
     let context = &input_array[0];
-    let book = &input_array[1]; // THIS IS THE REAL BOOK!
+    let book = &input_array[1]; // This is the real book
 
     let root = context
         .pointer("/root")
@@ -70,7 +70,7 @@ fn main() {
 
     let src_dir = PathBuf::from(root).join("src");
 
-    // --- Robust Site URL Extraction ---
+    //  Robust Site URL Extraction
     let site_url = context
         .pointer("/config/output/html/site-url")
         .and_then(|v| v.as_str())
@@ -80,7 +80,7 @@ fn main() {
         .unwrap_or("https://example.com/")
         .trim_end_matches('/') // Ensure no trailing slash
         .to_string();
-    // ----------------------------------
+    // ------------------------------
 
     let feed_title = context
         .pointer("/config/book/title")

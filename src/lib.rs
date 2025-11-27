@@ -161,10 +161,6 @@ fn markdown_to_html(md: &str) -> String {
 /// Strip obvious leading boilerplate (TOCs, details, long definition blocks)
 /// so previews tend to start at the main intro text instead of metadata.
 fn strip_leading_boilerplate(md: &str) -> &str {
-    // Heuristic:
-    // - Skip leading blank lines
-    // - If there is a top-level heading, start after the first blank line that follows it
-    // - Otherwise, just return the original
     let mut seen_heading = false;
     let mut byte_idx = 0;
     let mut acc_bytes = 0;
@@ -284,7 +280,7 @@ pub fn build_feed(
 
             let link = format!("{base_url}/{html_path}");
 
-            // --- Hybrid preview source selection with heuristics ---
+            //  Hybrid preview source selection
             let content_trimmed = article.content.trim();
 
             // Count chars to decide if body is "very short"
