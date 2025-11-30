@@ -200,4 +200,4 @@ to `https://your-site/rss.xml`
 
 ### License
 
-Apache-2.0
+[Apache License 2.0](https://github.com/saylesss88/mdbook-rss-feed/blob/main/LICENSE)
