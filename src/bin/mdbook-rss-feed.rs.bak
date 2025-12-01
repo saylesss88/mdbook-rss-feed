@@ -70,7 +70,7 @@ fn main() {
 
     let src_dir = PathBuf::from(root).join("src");
 
-    // Robust Site URL Extraction
+    //  Robust Site URL Extraction
     let site_url = context
         .pointer("/config/output/html/site-url")
         .and_then(|v| v.as_str())
@@ -80,6 +80,7 @@ fn main() {
         .unwrap_or("https://example.com/")
         .trim_end_matches('/') // Ensure no trailing slash
         .to_string();
+    // ------------------------------
 
     let feed_title = context
         .pointer("/config/book/title")
@@ -93,25 +94,12 @@ fn main() {
         .and_then(|v| v.as_str())
         .unwrap_or("An mdBook-generated site");
 
-    // New: read preprocessor flag from config
-    let full_preview = context
-        .pointer("/config/preprocessor/rss-feed/full-preview")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
     eprintln!("Root: {root}");
     eprintln!("Site URL: {site_url}");
     eprintln!("Title: {feed_title}");
-    eprintln!("Full preview: {full_preview}");
 
-    let channel = build_feed(
-        &src_dir,
-        feed_title,
-        &site_url,
-        feed_description,
-        full_preview,
-    )
-    .expect("Failed to generate RSS feed");
+    let channel = build_feed(&src_dir, feed_title, &site_url, feed_description)
+        .expect("Failed to generate RSS feed");
 
     // Write to src/rss.xml (auto-copied by renderer to book/rss.xml)
     let rss_path = src_dir.join("rss.xml");

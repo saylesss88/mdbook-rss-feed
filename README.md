@@ -14,6 +14,7 @@ Perfect for blogs, documentation sites, or any mdBook that you want to publish.
   - Prefer chapter body content for the preview
   - Fall back to `description` in frontmatter when the body is empty or very
     short
+  - Optional flag to generate a full-preview
 
 - Proper XML escaping via the `rss` crate
 
@@ -58,6 +59,8 @@ src = "src"
 
 [preprocessor.rss-feed]
 renderers = ["html"]
+# Generate the full chapter as the preview
+# full-preview = true
 
 [output.html]
 site-url = "https://your-user.github.io/"
@@ -72,6 +75,10 @@ site-url = "https://your-user.github.io/"
 
 - With the example above, the feed would be at:
   `https://your-user.github.io/rss.xml`.
+
+- Adding `full-preview = true` lets readers view the entire content directly in
+  their feed reader, which improves privacy and reduces tracking by avoiding
+  visits to the website itself.
 
 ## Frontmatter
 
