@@ -1,4 +1,4 @@
-use mdbook_rss_feed::build_feed;
+use mdbook_rss_feed::{build_feed, rss_to_atom};
 use serde_json::Value;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -110,12 +110,19 @@ fn main() {
         .map(|n| n as usize)
         .unwrap_or(0); // 0 = unlimited (single feed)
 
+    // Atom flag
+    let atom_enabled = context
+        .pointer("/config/preprocessor/rss-feed/atom")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     eprintln!("Root: {root}");
     eprintln!("Site URL: {site_url}");
     eprintln!("Title: {feed_title}");
     eprintln!("Full preview: {full_preview}");
     eprintln!("Paginated: {paginated}");
     eprintln!("Max items: {max_items}");
+    eprintln!("Atom enabled: {atom_enabled}");
 
     let result = build_feed(
         &src_dir,
@@ -129,7 +136,7 @@ fn main() {
     .expect("Failed to generate RSS feed");
 
     // Write all pages
-    for page in result.pages {
+    for page in &result.pages {
         let rss_path = src_dir.join(&page.filename);
 
         let rss_content = page.channel.to_string();
@@ -177,10 +184,38 @@ fn main() {
         }
     }
 
+    // Optionally write Atom feed from the first RSS page
+    if atom_enabled {
+        if let Some(first_page) = result.pages.first() {
+            let atom_feed = rss_to_atom(&first_page.channel);
+            let atom_xml = atom_feed.to_string();
+            let atom_path = src_dir.join("atom.xml");
+            let atom_bytes = atom_xml.as_bytes();
+
+            eprintln!(
+                "Writing Atom feed {} ({} bytes)",
+                atom_path.display(),
+                atom_bytes.len()
+            );
+
+            if let Err(e) = fs::write(&atom_path, atom_bytes) {
+                eprintln!(
+                    "ERROR: fs::write failed for Atom feed {}: {}",
+                    atom_path.display(),
+                    e
+                );
+                std::process::exit(1);
+            }
+        }
+    }
+
     // Flush logs to ensure they appear before stdout
     io::stderr().flush().unwrap();
 
     eprintln!("RSS feed(s) written to src/");
+    if atom_enabled {
+        eprintln!("Atom feed written to src/atom.xml");
+    }
 
     // ECHO BACK THE SECOND ELEMENT — THE ACTUAL BOOK
     println!("{}", serde_json::to_string(book).unwrap());

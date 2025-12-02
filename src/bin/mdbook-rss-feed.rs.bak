@@ -1,7 +1,7 @@
 use mdbook_rss_feed::build_feed;
 use serde_json::Value;
 use std::fs;
-use std::io::{self, Read, Write}; // Added for flush and Write trait
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
 fn main() {
@@ -76,9 +76,8 @@ fn main() {
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        // Fallback to a valid URL if config is missing or empty
         .unwrap_or("https://example.com/")
-        .trim_end_matches('/') // Ensure no trailing slash
+        .trim_end_matches('/')
         .to_string();
 
     let feed_title = context
@@ -93,85 +92,95 @@ fn main() {
         .and_then(|v| v.as_str())
         .unwrap_or("An mdBook-generated site");
 
-    // New: read preprocessor flag from config
+    // Preview mode flag
     let full_preview = context
         .pointer("/config/preprocessor/rss-feed/full-preview")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
+    // Pagination flags
+    let paginated = context
+        .pointer("/config/preprocessor/rss-feed/paginated")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let max_items = context
+        .pointer("/config/preprocessor/rss-feed/max-items")
+        .and_then(|v| v.as_u64())
+        .map(|n| n as usize)
+        .unwrap_or(0); // 0 = unlimited (single feed)
+
     eprintln!("Root: {root}");
     eprintln!("Site URL: {site_url}");
     eprintln!("Title: {feed_title}");
     eprintln!("Full preview: {full_preview}");
+    eprintln!("Paginated: {paginated}");
+    eprintln!("Max items: {max_items}");
 
-    let channel = build_feed(
+    let result = build_feed(
         &src_dir,
         feed_title,
         &site_url,
         feed_description,
         full_preview,
+        max_items,
+        paginated,
     )
     .expect("Failed to generate RSS feed");
 
-    // Write to src/rss.xml (auto-copied by renderer to book/rss.xml)
-    let rss_path = src_dir.join("rss.xml");
+    // Write all pages
+    for page in result.pages {
+        let rss_path = src_dir.join(&page.filename);
 
-    // Debug: Generate content and check dir
-    let rss_content = channel.to_string();
-    let rss_bytes = rss_content.as_bytes();
-    eprintln!("RSS content size before write: {} bytes", rss_bytes.len());
-    eprintln!("RSS path: {}", rss_path.display());
-    eprintln!("Src dir exists: {}", src_dir.exists());
-    eprintln!(
-        "Src dir writable: {}",
-        src_dir
-            .metadata()
-            .map(|m| !m.permissions().readonly())
-            .unwrap_or(false)
-    );
+        let rss_content = page.channel.to_string();
+        let rss_bytes = rss_content.as_bytes();
 
-    // Attempt write with error handling
-    match fs::write(&rss_path, rss_bytes) {
-        Ok(_) => {
-            let written_metadata = rss_path.metadata();
-            match written_metadata {
-                Ok(m) => {
-                    eprintln!("Write succeeded! Written file size: {} bytes", m.len());
-                    if m.len() == 0 {
-                        eprintln!("ERROR: Wrote 0 bytes—possible I/O truncation");
+        eprintln!(
+            "Writing RSS page {} ({} bytes)",
+            rss_path.display(),
+            rss_bytes.len()
+        );
+        eprintln!("Src dir exists: {}", src_dir.exists());
+        eprintln!(
+            "Src dir writable: {}",
+            src_dir
+                .metadata()
+                .map(|m| !m.permissions().readonly())
+                .unwrap_or(false)
+        );
+
+        match fs::write(&rss_path, rss_bytes) {
+            Ok(_) => {
+                let written_metadata = rss_path.metadata();
+                match written_metadata {
+                    Ok(m) => {
+                        eprintln!(
+                            "Write succeeded for {}! Written file size: {} bytes",
+                            rss_path.display(),
+                            m.len()
+                        );
+                        if m.len() == 0 {
+                            eprintln!("ERROR: Wrote 0 bytes—possible I/O truncation");
+                        }
                     }
+                    Err(e) => eprintln!(
+                        "ERROR: Failed to get metadata after write for {}: {}",
+                        rss_path.display(),
+                        e
+                    ),
                 }
-                Err(e) => eprintln!("ERROR: Failed to get metadata after write: {}", e),
             }
-        }
-        Err(e) => {
-            eprintln!("ERROR: fs::write failed: {}", e);
-            std::process::exit(1);
+            Err(e) => {
+                eprintln!("ERROR: fs::write failed for {}: {}", rss_path.display(), e);
+                std::process::exit(1);
+            }
         }
     }
 
-    // Read back immediately for verification
-    match fs::read_to_string(&rss_path) {
-        Ok(read_back) => {
-            eprintln!("Read-back success! Size: {} bytes", read_back.len());
-            eprintln!(
-                "Read-back preview (first 400 chars): {}",
-                &read_back[..read_back.len().min(400)]
-            );
-            if read_back.len() != rss_bytes.len() {
-                eprintln!(
-                    "WARNING: Truncation! Expected {}, read {}",
-                    rss_bytes.len(),
-                    read_back.len()
-                );
-            }
-            // Flush logs to ensure they appear before stdout
-            io::stderr().flush().unwrap();
-        }
-        Err(e) => eprintln!("ERROR: Failed to read back RSS after write: {}", e),
-    }
+    // Flush logs to ensure they appear before stdout
+    io::stderr().flush().unwrap();
 
-    eprintln!("RSS feed written to {}", rss_path.display());
+    eprintln!("RSS feed(s) written to src/");
 
     // ECHO BACK THE SECOND ELEMENT — THE ACTUAL BOOK
     println!("{}", serde_json::to_string(book).unwrap());

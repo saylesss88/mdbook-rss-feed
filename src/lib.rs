@@ -12,6 +12,12 @@ use serde::{Deserialize, Deserializer};
 use std::{fs, path::Path, time::SystemTime};
 use walkdir::WalkDir;
 
+// Optional Atom support
+use atom_syndication::{
+    Content as AtomContent, Entry as AtomEntry, Feed as AtomFeed, Link as AtomLink,
+    Text as AtomText,
+};
+
 // Minimum body length (in chars) before we prefer it over description
 const MIN_BODY_PREVIEW_CHARS: usize = 80;
 
@@ -315,6 +321,69 @@ pub struct BuildResult {
     pub pages: Vec<FeedPage>,
 }
 
+/// Convert an RSS 2.0 channel into a minimal Atom 1.0 feed.
+///
+/// This is a best-effort mapping used when `atom = true` in the configuration.
+/// It copies titles, links, descriptions (as HTML content), and dates where
+/// available.
+pub fn rss_to_atom(channel: &Channel) -> AtomFeed {
+    let entries: Vec<AtomEntry> = channel
+        .items()
+        .iter()
+        .map(|item| {
+            let mut entry = AtomEntry::default();
+
+            if let Some(title) = item.title() {
+                entry.set_title(title.to_string());
+            }
+
+            if let Some(link) = item.link() {
+                entry.set_links(vec![AtomLink {
+                    href: link.to_string(),
+                    ..Default::default()
+                }]);
+            }
+
+            if let Some(desc) = item.description() {
+                let mut content = AtomContent::default();
+                content.set_content_type("html".to_string());
+                content.set_value(Some(desc.to_string()));
+                entry.set_content(Some(content));
+            }
+
+            if let Some(date) = item.pub_date() {
+                if let Ok(dt) = DateTime::parse_from_rfc2822(date) {
+                    entry.set_updated(dt);
+                }
+            }
+
+            entry
+        })
+        .collect();
+
+    let mut feed = AtomFeed::default();
+    feed.set_title(channel.title().to_string());
+    feed.set_entries(entries);
+
+    let link = channel.link();
+    if !link.is_empty() {
+        feed.set_links(vec![AtomLink {
+            href: link.to_string(),
+            ..Default::default()
+        }]);
+    }
+
+    let desc = channel.description();
+    if !desc.is_empty() {
+        feed.set_subtitle(Some(AtomText {
+            value: desc.to_string(),
+            ..Default::default()
+        }));
+    }
+
+    feed
+}
+
 /// Build one or more RSS 2.0 feeds for an mdBook.
 ///
 /// This scans `src_dir` for chapters, extracts frontmatter, generates HTML
@@ -431,7 +500,7 @@ pub fn build_feed(
                 .link(format!("{base_url}/"))
                 .description(description)
                 .items(slice.to_vec())
-                .generator(Some("mdbook-rss-feed 0.1.0".to_string()))
+                .generator(Some("mdbook-rss-feed 1.0.0".to_string()))
                 .build()
         };
 

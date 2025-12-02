@@ -382,6 +382,7 @@ name = "mdbook-rss-feed"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "atom_syndication",
  "chrono",
  "clap",
  "pulldown-cmark",

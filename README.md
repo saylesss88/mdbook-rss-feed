@@ -36,6 +36,9 @@ Perfect for blogs, documentation sites, or any mdBook that you want to publish.
   still exposing older entries via `rss2.xml`, `rss3.xml`, etc., so archives
   stay accessible without bloating the main feed.
 
+- When `atom = true`, an Atom 1.0 feed is written to `atom.xml` alongside
+  `rss.xml` so Atom-capable readers can subscribe to either format.
+
 ---
 
 ## Installation
@@ -72,6 +75,8 @@ src = "src"
 renderers = ["html"]
 # Generate the full chapter as the preview
 # full-preview = true
+# Also generate an atom.xml
+# atom = true
 
 
 # Enable pagination (rss2.xml, rss3.xml, etc.)
@@ -103,6 +108,9 @@ site-url = "https://your-user.github.io/"
 - Adding `full-preview = true` lets readers view the entire content directly in
   their feed reader, which improves privacy and reduces tracking by avoiding
   visits to the website itself.
+
+- In the above example, the atom feed would be at
+  `https://your-user.github.io/atom.xml`.
 
 ---
 
