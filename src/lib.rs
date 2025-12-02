@@ -1,3 +1,9 @@
+//! mdbook-rss-feed core library.
+//!
+//! This module scans an mdBook src directory for chapters, extracts frontmatter
+//! and content, and turns them into one or more RSS 2.0 channels suitable for
+//! static hosting.
+
 use anyhow::Result;
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use pulldown_cmark::{html, Options, Parser};
@@ -35,6 +41,13 @@ where
     Ok(None)
 }
 
+/// Parsed YAML frontmatter for a single chapter.
+///
+/// Fields are used for feed metadata:
+/// - `title`: item title shown in the feed.
+/// - `date`: publish date for sorting and `pubDate` (RFC3339 or `YYYY-MM-DD`).
+/// - `author`: optional item author.
+/// - `description`: optional summary/preview override.
 #[derive(Debug, Deserialize, Clone)]
 pub struct FrontMatter {
     pub title: String,
@@ -46,6 +59,11 @@ pub struct FrontMatter {
     pub description: Option<String>, // User-supplied summary (optional)
 }
 
+/// A chapter plus its parsed metadata.
+///
+/// `Article` holds the frontmatter, full Markdown body, and the path relative
+/// to the mdBook `src` root. It is the internal representation used before
+/// converting to RSS items.
 #[derive(Debug)]
 pub struct Article {
     pub fm: FrontMatter,
@@ -53,6 +71,12 @@ pub struct Article {
     pub path: String,
 }
 
+/// Parse a single Markdown file into `Article`.
+///
+/// This looks for a leading `---`…`---` YAML frontmatter block, parses it into
+/// `FrontMatter`, and treats the rest of the file as the chapter body. When no
+/// frontmatter is found or parsing fails, reasonable defaults are used and the
+/// file's modification time becomes the fallback date.
 pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
     let text = fs::read_to_string(path)?;
 
@@ -112,6 +136,11 @@ pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
     })
 }
 
+/// Collect all Markdown chapters under `src_dir`.
+///
+/// Walks the directory tree, skipping `SUMMARY.md` and non-Markdown files,
+/// parses each chapter into an `Article`, then sorts the list newest → oldest
+/// based on frontmatter `date` (falling back to file modification time).
 pub fn collect_articles(src_dir: &Path) -> Result<Vec<Article>> {
     let mut articles = Vec::new();
 
@@ -151,6 +180,10 @@ pub fn collect_articles(src_dir: &Path) -> Result<Vec<Article>> {
     Ok(articles)
 }
 
+/// Render Markdown to HTML using `pulldown_cmark`.
+///
+/// This is used both for full-content feeds and for generating HTML previews
+/// from chapter bodies or frontmatter descriptions.
 fn markdown_to_html(md: &str) -> String {
     let mut html = String::new();
     let parser = Parser::new_ext(md, Options::all());
@@ -159,7 +192,8 @@ fn markdown_to_html(md: &str) -> String {
 }
 
 /// Strip obvious leading boilerplate (TOCs, details, long definition blocks)
-/// so previews tend to start at the main intro text instead of metadata.
+/// so previews tend to start at the main intro text instead of metadata or
+/// navigation.
 fn strip_leading_boilerplate(md: &str) -> &str {
     let mut seen_heading = false;
     let mut byte_idx = 0;
@@ -218,7 +252,12 @@ fn utf8_prefix(s: &str, max_chars: usize) -> &str {
     }
 }
 
-/// Take up to `max_paragraphs` <p> blocks from HTML, and cap at `max_chars` (UTF-8 safe).
+/// Return the first few `<p>` blocks from an HTML fragment.
+///
+/// This is used to build the `<description>` preview for each item. At most
+/// `max_paragraphs` paragraphs are included, and the result is truncated to
+/// `max_chars` characters (UTF‑8 safe). If no `<p>` is found, the original
+/// HTML is returned unchanged.
 fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize) -> String {
     let mut out = String::new();
     let mut start = 0;
@@ -258,17 +297,43 @@ fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize) ->
     }
 }
 
-// One generated feed page
+/// One generated RSS feed file.
+///
+/// `filename` is the relative file name written into `src/` (for example
+/// `rss.xml` or `rss2.xml`). `channel` is the corresponding RSS 2.0 channel.
 pub struct FeedPage {
     pub filename: String, // e.g. "rss.xml", "rss2.xml"
     pub channel: Channel,
 }
 
-// Result for the whole build
+/// Result of building feeds for a book.
+///
+/// In simple setups this will contain a single `rss.xml` page. When pagination
+/// is enabled it contains multiple `FeedPage`s (e.g. `rss.xml`, `rss2.xml`,
+/// `rss3.xml`, …) each with a slice of the overall item list.
 pub struct BuildResult {
     pub pages: Vec<FeedPage>,
 }
 
+/// Build one or more RSS 2.0 feeds for an mdBook.
+///
+/// This scans `src_dir` for chapters, extracts frontmatter, generates HTML
+/// previews, and returns a `BuildResult` containing one or more `FeedPage`s.
+/// The first page is always `rss.xml`; when `paginated` is `true` and
+/// `max_items > 0`, additional pages `rss2.xml`, `rss3.xml`, … are created.
+///
+/// Arguments:
+/// - `src_dir`: mdBook `src` directory to scan for `.md` files.
+/// - `title`: feed title, usually `config.book.title`.
+/// - `site_url`: public base URL of the rendered site (no trailing slash).
+/// - `description`: top-level feed description.
+/// - `full_preview`: when `true`, include full chapter content instead of a
+///   shortened preview in `<description>`.
+/// - `max_items`: maximum items per feed page when pagination is enabled.
+/// - `paginated`: enable or disable multi-page feeds.
+///
+/// On success, the caller is responsible for writing each `FeedPage`'s channel
+/// to disk at `pages[i].filename`.
 pub fn build_feed(
     src_dir: &Path,
     title: &str,
