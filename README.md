@@ -36,8 +36,10 @@ Perfect for blogs, documentation sites, or any mdBook that you want to publish.
   still exposing older entries via `rss2.xml`, `rss3.xml`, etc., so archives
   stay accessible without bloating the main feed.
 
-- When `atom = true`, an Atom 1.0 feed is written to `atom.xml` alongside
+- Optionally output an Atom 1.0 feed is written to `atom.xml` alongside
   `rss.xml` so Atom-capable readers can subscribe to either format.
+
+- Optionally output a json feed file (`feed.json`)
 
 ---
 
@@ -77,6 +79,8 @@ renderers = ["html"]
 # full-preview = true
 # Also generate an atom.xml
 # atom = true
+# Also generate a feed.json
+# json-feed = true
 
 
 # Enable pagination (rss2.xml, rss3.xml, etc.)
@@ -149,7 +153,8 @@ once with these settings applied, you can remove the `paginated = false`, and
 Frontmatter is optional. Without it, entries only include the chapter title,
 book name, and date/time. (varies by RSS reader)
 
-With frontmatter, you can customize those fields and add author and description:
+With frontmatter, you can customize those fields and add author and description,
+the same frontmatter works for all syndications:
 
 ```yaml
 title: Debugging NixOS modules
@@ -189,6 +194,25 @@ when the body is empty or very short.
 
 If you never want to use the fallback, just omit `description`; the preview will
 always come from the body.
+
+---
+
+## Syndication
+
+This crate exposes three feed formats so you can use whatever works best for
+your reader or tooling:
+
+- **RSS 2.0** (`rss.xml`): The most widely supported format. Good default choice
+  for maximum compatibility with older and newer feed readers alike.
+
+- **Atom 1.0** (`atom.xml`): A better-specified XML format with stricter
+  semantics and less ambiguity than RSS. Nice choice if you care about standards
+  correctness and richer metadata but still want XML.
+
+- **JSON Feed 1.1** (`feed.json`): A feed format based on JSON instead of XML,
+  designed to be easy to consume from modern applications. This is often the
+  easiest to parse if you’re writing custom tools, because you can treat it as
+  ordinary JSON rather than dealing with XML parsing.
 
 ---
 

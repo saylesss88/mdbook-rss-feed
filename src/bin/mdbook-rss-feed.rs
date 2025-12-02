@@ -1,4 +1,4 @@
-use mdbook_rss_feed::{build_feed, rss_to_atom};
+use mdbook_rss_feed::{build_feed, rss_to_atom, rss_to_json_feed};
 use serde_json::Value;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -110,6 +110,12 @@ fn main() {
         .map(|n| n as usize)
         .unwrap_or(0); // 0 = unlimited (single feed)
 
+    // JSON Feed flag
+    let json_feed_enabled = context
+        .pointer("/config/preprocessor/rss-feed/json-feed")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     // Atom flag
     let atom_enabled = context
         .pointer("/config/preprocessor/rss-feed/atom")
@@ -123,6 +129,7 @@ fn main() {
     eprintln!("Paginated: {paginated}");
     eprintln!("Max items: {max_items}");
     eprintln!("Atom enabled: {atom_enabled}");
+    eprintln!("JSON Feed enabled: {json_feed_enabled}");
 
     let result = build_feed(
         &src_dir,
@@ -184,28 +191,53 @@ fn main() {
         }
     }
 
-    // Optionally write Atom feed from the first RSS page
-    if atom_enabled {
+    // Optionally write JSON Feed from the first RSS page
+    if json_feed_enabled {
         if let Some(first_page) = result.pages.first() {
-            let atom_feed = rss_to_atom(&first_page.channel);
-            let atom_xml = atom_feed.to_string();
-            let atom_path = src_dir.join("atom.xml");
-            let atom_bytes = atom_xml.as_bytes();
+            let json_feed_url = format!("{}/feed.json", site_url);
+            let json_feed = rss_to_json_feed(&first_page.channel, Some(&json_feed_url));
+
+            let json_path = src_dir.join("feed.json");
+            let json_bytes =
+                serde_json::to_vec_pretty(&json_feed).expect("Failed to serialize JSON Feed");
 
             eprintln!(
-                "Writing Atom feed {} ({} bytes)",
-                atom_path.display(),
-                atom_bytes.len()
+                "Writing JSON Feed {} ({} bytes)",
+                json_path.display(),
+                json_bytes.len()
             );
 
-            if let Err(e) = fs::write(&atom_path, atom_bytes) {
+            if let Err(e) = fs::write(&json_path, &json_bytes) {
                 eprintln!(
-                    "ERROR: fs::write failed for Atom feed {}: {}",
-                    atom_path.display(),
+                    "ERROR: fs::write failed for JSON Feed {}: {}",
+                    json_path.display(),
                     e
                 );
                 std::process::exit(1);
             }
+        }
+    }
+
+    // Optionally write Atom feed from the first RSS page
+    if let (true, Some(first_page)) = (atom_enabled, result.pages.first()) {
+        let atom_feed = rss_to_atom(&first_page.channel);
+        let atom_xml = atom_feed.to_string();
+        let atom_path = src_dir.join("atom.xml");
+        let atom_bytes = atom_xml.as_bytes();
+
+        eprintln!(
+            "Writing Atom feed {} ({} bytes)",
+            atom_path.display(),
+            atom_bytes.len()
+        );
+
+        if let Err(e) = fs::write(&atom_path, atom_bytes) {
+            eprintln!(
+                "ERROR: fs::write failed for Atom feed {}: {}",
+                atom_path.display(),
+                e
+            );
+            std::process::exit(1);
         }
     }
 

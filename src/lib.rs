@@ -9,8 +9,38 @@ use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use pulldown_cmark::{html, Options, Parser};
 use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
 use serde::{Deserialize, Deserializer};
+use serde_json::Value as JsonValue;
 use std::{fs, path::Path, time::SystemTime};
 use walkdir::WalkDir;
+
+// Minimal JSON Feed 1.1 model for this crate
+#[derive(serde::Serialize)]
+pub struct JsonFeed {
+    pub version: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub home_page_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub feed_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub items: Vec<JsonFeedItem>,
+}
+
+#[derive(serde::Serialize)]
+pub struct JsonFeedItem {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_html: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_published: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author: Option<JsonValue>, // allow simple or richer authors later
+}
 
 // Optional Atom support
 use atom_syndication::{
@@ -321,6 +351,53 @@ pub struct BuildResult {
     pub pages: Vec<FeedPage>,
 }
 
+/// Convert an RSS 2.0 channel into a JSON Feed 1.1 structure.
+///
+/// Used when `json-feed = true` in the configuration.
+pub fn rss_to_json_feed(channel: &Channel, feed_url: Option<&str>) -> JsonFeed {
+    let items: Vec<JsonFeedItem> = channel
+        .items()
+        .iter()
+        .map(|item| {
+            let id = item
+                .guid()
+                .map(|g| g.value().to_string())
+                .or_else(|| item.link().map(|l| l.to_string()))
+                .unwrap_or_else(|| item.title().unwrap_or("").to_string());
+
+            let url = item.link().map(|l| l.to_string());
+            let title = item.title().map(|t| t.to_string());
+            let content_html = item.description().map(|d| d.to_string());
+            let date_published = item.pub_date().and_then(|d| {
+                // pubDate is RFC2822, convert to RFC3339 for JSON Feed
+                DateTime::parse_from_rfc2822(d)
+                    .ok()
+                    .map(|dt| dt.to_rfc3339())
+            });
+
+            let author = item.author().map(|a| serde_json::json!({ "name": a }));
+
+            JsonFeedItem {
+                id,
+                url,
+                title,
+                content_html,
+                date_published,
+                author,
+            }
+        })
+        .collect();
+
+    JsonFeed {
+        version: "https://jsonfeed.org/version/1.1".to_string(),
+        title: channel.title().to_string(),
+        home_page_url: Some(channel.link().to_string()),
+        feed_url: feed_url.map(|u| u.to_string()),
+        description: Some(channel.description().to_string()),
+        items,
+    }
+}
+
 /// Convert an RSS 2.0 channel into a minimal Atom 1.0 feed.
 ///
 /// This is a best-effort mapping used when `atom = true` in the configuration.
@@ -332,6 +409,14 @@ pub fn rss_to_atom(channel: &Channel) -> AtomFeed {
         .iter()
         .map(|item| {
             let mut entry = AtomEntry::default();
+
+            // Stable per-entry id: prefer guid, then link, then title
+            let entry_id = item
+                .guid()
+                .map(|g| g.value().to_string())
+                .or_else(|| item.link().map(|l| l.to_string()))
+                .unwrap_or_else(|| item.title().unwrap_or("").to_string());
+            entry.set_id(entry_id);
 
             if let Some(title) = item.title() {
                 entry.set_title(title.to_string());
@@ -351,10 +436,8 @@ pub fn rss_to_atom(channel: &Channel) -> AtomFeed {
                 entry.set_content(Some(content));
             }
 
-            if let Some(date) = item.pub_date() {
-                if let Ok(dt) = DateTime::parse_from_rfc2822(date) {
-                    entry.set_updated(dt);
-                }
+            if let Some(Ok(dt)) = item.pub_date().map(DateTime::parse_from_rfc2822) {
+                entry.set_updated(dt);
             }
 
             entry
@@ -371,6 +454,11 @@ pub fn rss_to_atom(channel: &Channel) -> AtomFeed {
             href: link.to_string(),
             ..Default::default()
         }]);
+        // Use the public feed URL as a stable Atom feed id
+        feed.set_id(link.to_string());
+    } else {
+        // Fallback id if link is somehow empty
+        feed.set_id(channel.title().to_string());
     }
 
     let desc = channel.description();
