@@ -258,13 +258,26 @@ fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize) ->
     }
 }
 
+// One generated feed page
+pub struct FeedPage {
+    pub filename: String, // e.g. "rss.xml", "rss2.xml"
+    pub channel: Channel,
+}
+
+// Result for the whole build
+pub struct BuildResult {
+    pub pages: Vec<FeedPage>,
+}
+
 pub fn build_feed(
     src_dir: &Path,
     title: &str,
     site_url: &str,
     description: &str,
     full_preview: bool,
-) -> Result<Channel> {
+    max_items: usize,
+    paginated: bool,
+) -> Result<BuildResult> {
     let articles = collect_articles(src_dir)?;
 
     let base_url = site_url.trim_end_matches('/');
@@ -345,14 +358,47 @@ pub fn build_feed(
         })
         .collect();
 
-    // Build the channel
-    let channel = ChannelBuilder::default()
-        .title(title)
-        .link(format!("{base_url}/"))
-        .description(description)
-        .items(items)
-        .generator(Some("mdbook-rss-feed 0.1.0".to_string()))
-        .build();
+    // Helper to construct a single Channel with a slice of items
+    let build_channel_for_slice =
+        |slice: &[Item], _page_idx: usize, _total_pages: usize| -> Channel {
+            ChannelBuilder::default()
+                .title(title)
+                .link(format!("{base_url}/"))
+                .description(description)
+                .items(slice.to_vec())
+                .generator(Some("mdbook-rss-feed 0.1.0".to_string()))
+                .build()
+        };
 
-    Ok(channel)
+    let mut pages = Vec::new();
+
+    if !paginated || max_items == 0 || items.len() <= max_items {
+        // Single feed (no pagination)
+        let channel = build_channel_for_slice(&items, 1, 1);
+        pages.push(FeedPage {
+            filename: "rss.xml".to_string(),
+            channel,
+        });
+    } else {
+        // Split into pages of size max_items
+        let total_pages = items.len().div_ceil(max_items);
+
+        for page_idx in 0..total_pages {
+            let start = page_idx * max_items;
+            let end = (start + max_items).min(items.len());
+            let slice = &items[start..end];
+
+            let filename = if page_idx == 0 {
+                "rss.xml".to_string()
+            } else {
+                format!("rss{}.xml", page_idx + 1)
+            };
+
+            let channel = build_channel_for_slice(slice, page_idx + 1, total_pages);
+
+            pages.push(FeedPage { filename, channel });
+        }
+    }
+
+    Ok(BuildResult { pages })
 }

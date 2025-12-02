@@ -263,6 +263,7 @@ pub fn build_feed(
     title: &str,
     site_url: &str,
     description: &str,
+    full_preview: bool,
 ) -> Result<Channel> {
     let articles = collect_articles(src_dir)?;
 
@@ -280,36 +281,47 @@ pub fn build_feed(
 
             let link = format!("{base_url}/{html_path}");
 
-            //  Hybrid preview source selection
+            // Hybrid preview source selection
             let content_trimmed = article.content.trim();
 
             // Count chars to decide if body is "very short"
-            let body_len = content_trimmed.chars().count();
+            let _body_len = content_trimmed.chars().count();
 
             // 1) Choose base markdown (body vs description)
-            let mut source_md =
-                if body_len >= MIN_BODY_PREVIEW_CHARS || article.fm.description.is_none() {
-                    // Use chapter body by default when it has enough content,
-                    // or when there is no description at all.
-                    content_trimmed
-                } else {
-                    // Body is empty/very short AND description exists → use description.
-                    article.fm.description.as_deref().unwrap_or(content_trimmed)
-                };
+            let mut source_md: &str;
 
-            // 2) Strip obvious leading boilerplate so we start near the intro text
-            source_md = strip_leading_boilerplate(source_md);
+            if full_preview {
+                // Full-content mode: always use the full body markdown
+                source_md = article.content.as_str();
+            } else {
+                // Preview mode: existing hybrid logic (body vs description, boilerplate strip, slice)
+                let content_trimmed = article.content.trim();
+                let body_len = content_trimmed.chars().count();
 
-            // 3) Only consider the first slice of markdown for preview
-            const PREVIEW_MD_SLICE_CHARS: usize = 4000;
-            let source_md_slice = utf8_prefix(source_md, PREVIEW_MD_SLICE_CHARS);
-            // -------------------------------------------------------
+                source_md =
+                    if body_len >= MIN_BODY_PREVIEW_CHARS || article.fm.description.is_none() {
+                        content_trimmed
+                    } else {
+                        article.fm.description.as_deref().unwrap_or(content_trimmed)
+                    };
+
+                // Strip obvious leading boilerplate so we start near the intro text
+                source_md = strip_leading_boilerplate(source_md);
+
+                // Only consider the first slice of markdown for preview
+                const PREVIEW_MD_SLICE_CHARS: usize = 4000;
+                source_md = utf8_prefix(source_md, PREVIEW_MD_SLICE_CHARS);
+            }
 
             // Convert chosen markdown source → HTML
-            let raw_html = markdown_to_html(source_md_slice);
+            let raw_html = markdown_to_html(source_md);
 
-            // Use first few paragraphs (up to 3) as preview, capped to a reasonable length
-            let preview = html_first_paragraphs(&raw_html, 3, 800);
+            // Use either full HTML or first few paragraphs as preview
+            let preview = if full_preview {
+                raw_html
+            } else {
+                html_first_paragraphs(&raw_html, 3, 800)
+            };
 
             let mut item = ItemBuilder::default();
 
