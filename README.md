@@ -72,7 +72,10 @@ src = "src"
 renderers = ["html"]
 # Generate the full chapter as the preview
 # full-preview = true
+
+
 # Enable pagination (rss2.xml, rss3.xml, etc.)
+# full-preview = false
 # paginated = true # enable pagination
 # max-items = 4    # max items per page (0 = unlimited / single feed)
 
@@ -122,6 +125,12 @@ Enable with `paginated = true` and `max-items = N` (e.g., 20) in
 To paginate correctly, ensure most chapters have `date:` in frontmatter (RFC3339
 like `2025-12-02T12:00:00Z` or simple `2025-12-02`). Without dates, sorting uses
 file timestamps, which may not reflect publish order.
+
+When switching back to an un-paginated feed, use `paginated = false`, with
+`max-items = 0`, delete any `rss2.xml`, `rss3.xml` files remaining in your
+`src/` directory, and run `mdbook clean` before rebuilding. After rebuilding
+once with these settings applied, you can remove the `paginated = false`, and
+`max-items = 0` if you want.
 
 </details>
 

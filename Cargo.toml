@@ -1,14 +1,21 @@
 [package]
 name = "mdbook-rss-feed"
-version = "0.4.4"
+version = "1.0.0"
 edition = "2024"
-authors = ["T Sawyer saylesss88@github.com"]
+authors = ["T. Sawyer saylesss88@github.com"]
 license = "Apache-2.0"
 description = "An mdBook preprocessor that generates a full-content RSS/Atom feed from your book"
 repository = "https://github.com/saylesss88/mdbook-rss-feed"
 readme = "README.md"
 keywords = ["mdbook", "rss", "feed", "preprocessor", "blog"]
-categories = ["command-line-utilities", "web-programming"]
+categories = [
+	"command-line-utilities",
+	"development-tools::build-utils",
+	"web-programming",
+]
+homepage = "https://github.com/saylesss88/mdbook-rss-feed"
+documentation = "https://docs.rs/mdbook-rss-feed"
+exclude = [".github/*", ".gitignore", "book/*", "docs/*"]
 
 [lib]
 name = "mdbook_rss_feed"
