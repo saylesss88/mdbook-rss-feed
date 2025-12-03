@@ -24,6 +24,8 @@ pub struct JsonFeed {
     pub feed_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_url: Option<String>, // <-- add this
     pub items: Vec<JsonFeedItem>,
 }
 
@@ -354,7 +356,11 @@ pub struct BuildResult {
 /// Convert an RSS 2.0 channel into a JSON Feed 1.1 structure.
 ///
 /// Used when `json-feed = true` in the configuration.
-pub fn rss_to_json_feed(channel: &Channel, feed_url: Option<&str>) -> JsonFeed {
+pub fn rss_to_json_feed(
+    channel: &Channel,
+    feed_url: Option<&str>,
+    next_url: Option<&str>,
+) -> JsonFeed {
     let items: Vec<JsonFeedItem> = channel
         .items()
         .iter()
@@ -369,7 +375,6 @@ pub fn rss_to_json_feed(channel: &Channel, feed_url: Option<&str>) -> JsonFeed {
             let title = item.title().map(|t| t.to_string());
             let content_html = item.description().map(|d| d.to_string());
             let date_published = item.pub_date().and_then(|d| {
-                // pubDate is RFC2822, convert to RFC3339 for JSON Feed
                 DateTime::parse_from_rfc2822(d)
                     .ok()
                     .map(|dt| dt.to_rfc3339())
@@ -394,10 +399,10 @@ pub fn rss_to_json_feed(channel: &Channel, feed_url: Option<&str>) -> JsonFeed {
         home_page_url: Some(channel.link().to_string()),
         feed_url: feed_url.map(|u| u.to_string()),
         description: Some(channel.description().to_string()),
+        next_url: next_url.map(|u| u.to_string()),
         items,
     }
 }
-
 /// Convert an RSS 2.0 channel into a minimal Atom 1.0 feed.
 ///
 /// This is a best-effort mapping used when `atom = true` in the configuration.

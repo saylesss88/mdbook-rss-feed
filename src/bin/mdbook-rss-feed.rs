@@ -1,3 +1,4 @@
+use atom_syndication::Link as AtomLink;
 use mdbook_rss_feed::{build_feed, rss_to_atom, rss_to_json_feed};
 use serde_json::Value;
 use std::fs;
@@ -192,12 +193,36 @@ fn main() {
     }
 
     // Optionally write JSON Feed from the first RSS page
-    if json_feed_enabled {
-        if let Some(first_page) = result.pages.first() {
-            let json_feed_url = format!("{}/feed.json", site_url);
-            let json_feed = rss_to_json_feed(&first_page.channel, Some(&json_feed_url));
 
-            let json_path = src_dir.join("feed.json");
+    // Optionally write JSON Feed for all pages
+    if json_feed_enabled {
+        let total_pages = result.pages.len();
+
+        for (page_idx, page) in result.pages.iter().enumerate() {
+            // suffix: "" for page 0, "2", "3", ...
+            let suffix = if page_idx == 0 {
+                String::new()
+            } else {
+                (page_idx + 1).to_string()
+            };
+
+            let self_url = format!("{}/feed{}.json", site_url, suffix);
+
+            let next_url = if page_idx + 1 < total_pages {
+                let next_suffix = (page_idx + 2).to_string(); // page 2, 3, ...
+                Some(format!("{}/feed{}.json", site_url, next_suffix))
+            } else {
+                None
+            };
+
+            let json_feed = rss_to_json_feed(&page.channel, Some(&self_url), next_url.as_deref());
+
+            let json_path = src_dir.join(if page_idx == 0 {
+                "feed.json".to_string()
+            } else {
+                format!("feed{}.json", page_idx + 1)
+            });
+
             let json_bytes =
                 serde_json::to_vec_pretty(&json_feed).expect("Failed to serialize JSON Feed");
 
@@ -217,30 +242,93 @@ fn main() {
             }
         }
     }
+    // Optionally write Atom feed(s) from all RSS pages
+    if atom_enabled {
+        let total_pages = result.pages.len();
 
-    // Optionally write Atom feed from the first RSS page
-    if let (true, Some(first_page)) = (atom_enabled, result.pages.first()) {
-        let atom_feed = rss_to_atom(&first_page.channel);
-        let atom_xml = atom_feed.to_string();
-        let atom_path = src_dir.join("atom.xml");
-        let atom_bytes = atom_xml.as_bytes();
+        for (page_idx, page) in result.pages.iter().enumerate() {
+            let mut atom_feed = rss_to_atom(&page.channel);
 
-        eprintln!(
-            "Writing Atom feed {} ({} bytes)",
-            atom_path.display(),
-            atom_bytes.len()
-        );
+            let suffix = if page_idx == 0 {
+                String::new()
+            } else {
+                (page_idx + 1).to_string()
+            };
 
-        if let Err(e) = fs::write(&atom_path, atom_bytes) {
+            let self_url = format!("{}/atom{}.xml", site_url, suffix);
+
+            let next_url = if page_idx + 1 < total_pages {
+                let next_suffix = (page_idx + 2).to_string();
+                Some(format!("{}/atom{}.xml", site_url, next_suffix))
+            } else {
+                None
+            };
+
+            let prev_url = if page_idx > 0 {
+                let prev_suffix = if page_idx - 1 == 0 {
+                    String::new()
+                } else {
+                    page_idx.to_string()
+                };
+                Some(format!("{}/atom{}.xml", site_url, prev_suffix))
+            } else {
+                None
+            };
+
+            let mut links = Vec::new();
+
+            // rel="self"
+            links.push(AtomLink {
+                href: self_url.clone(),
+                rel: "self".to_string(),
+                ..Default::default()
+            });
+
+            // rel="next"
+            if let Some(href) = next_url {
+                links.push(AtomLink {
+                    href,
+                    rel: "next".to_string(),
+                    ..Default::default()
+                });
+            }
+
+            // rel="prev"
+            if let Some(href) = prev_url {
+                links.push(AtomLink {
+                    href,
+                    rel: "prev".to_string(),
+                    ..Default::default()
+                });
+            }
+
+            atom_feed.set_links(links);
+            atom_feed.set_id(self_url.clone());
+
+            let atom_xml = atom_feed.to_string();
+            let atom_path = src_dir.join(if page_idx == 0 {
+                "atom.xml".to_string()
+            } else {
+                format!("atom{}.xml", page_idx + 1)
+            });
+            let atom_bytes = atom_xml.as_bytes();
+
             eprintln!(
-                "ERROR: fs::write failed for Atom feed {}: {}",
+                "Writing Atom feed {} ({} bytes)",
                 atom_path.display(),
-                e
+                atom_bytes.len()
             );
-            std::process::exit(1);
+
+            if let Err(e) = fs::write(&atom_path, atom_bytes) {
+                eprintln!(
+                    "ERROR: fs::write failed for Atom feed {}: {}",
+                    atom_path.display(),
+                    e
+                );
+                std::process::exit(1);
+            }
         }
     }
-
     // Flush logs to ensure they appear before stdout
     io::stderr().flush().unwrap();
 

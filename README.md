@@ -1,7 +1,7 @@
 # mdbook-rss-feed
 
-An mdBook preprocessor that generates a beautiful RSS 2.0 feed (and optional
-Atom) for your book, with HTML previews for each chapter.
+An mdBook preprocessor that generates RSS, Atom, and JSON feeds with rich HTML
+previews, optional full-content entries, and pagination support.
 
 Perfect for blogs, documentation sites, or any mdBook that you want to publish.
 
@@ -83,7 +83,7 @@ renderers = ["html"]
 # json-feed = true
 
 
-# Enable pagination (rss2.xml, rss3.xml, etc.)
+# Enable pagination (optionally for RSS, Atom, and JSON feeds)
 # full-preview = false
 # paginated = true # enable pagination
 # max-items = 4    # max items per page (0 = unlimited / single feed)
@@ -128,21 +128,34 @@ Enable with `paginated = true` and `max-items = N` (e.g., 20) in
 
 - Collects all .md chapters, sorts by `date` in frontmatter (newest first; falls
   back to file modification time).
-- `rss.xml` gets the N newest items only.
-- Older items go to `rss2.xml`, `rss3.xml`, etc. (e.g., with `max-items = 4`,
-  `rss.xml` has top 4 by date).
-- Keeps the main feed small/fast for readers; full history available in extra
-  files.
+
+- RSS:
+  - `rss.xml` gets the N newest items only.
+  - Older items go to `rss2.xml`, `rss3.xml`, etc. (e.g., with `max-items = 4`,
+    `rss.xml` has top 4 by date).
+  - Keeps the main feed small/fast for readers; full history available in extra
+    files.
+
+- Atom (when `atom = true`):
+  - `atom.xml`, `atom2.xml`, `atom3.xml`, mirror the RSS pages.
+
+  - Each Atom page includes `rel="self"` plus `rel="next"`/`rel="prev"` links so
+    clients can follow older or newer entries.​
+
+- JSON Feed (when `json-feed = true`):
+  - `feed.json`, `feed2.json`, `feed3.json`, mirror the RSS pages.
+
+  - Each JSON feed page includes a `next_url` pointing to the next page of older
+    items, as defined in JSON Feed 1.1.
 
 To paginate correctly, ensure most chapters have `date:` in frontmatter (RFC3339
 like `2025-12-02T12:00:00Z` or simple `2025-12-02`). Without dates, sorting uses
 file timestamps, which may not reflect publish order.
 
 When switching back to an un-paginated feed, use `paginated = false`, with
-`max-items = 0`, delete any `rss2.xml`, `rss3.xml` files remaining in your
-`src/` directory, and run `mdbook clean` before rebuilding. After rebuilding
-once with these settings applied, you can remove the `paginated = false`, and
-`max-items = 0` if you want.
+`max-items = 0`, delete any `rss2.xml`, `rss3.xml`, `atom2.xml`, `atom3.xml`,
+`feed2.json`, etc. files in your `src/` directory, and run `mdbook clean` before
+rebuilding.
 
 </details>
 
@@ -205,14 +218,83 @@ your reader or tooling:
 - **RSS 2.0** (`rss.xml`): The most widely supported format. Good default choice
   for maximum compatibility with older and newer feed readers alike.
 
+<details>
+<summary> ✔️ RSS example (rss.xml)</summary>
+
+```xml
+<?xml version="1.0" encoding="utf-8"?><rss version="2.0"><channel><title>privacy-book</title><link>https://mako088.github.io/</link><description>An mdBook-generated site</description><generator>mdbook-rss-feed 1.0.0</generator><item><title>index</title><link>https://mako088.github.io/index.html</link><description><![CDATA[]]></description><guid>https://mako088.github.io/index.html</guid><pubDate>Wed, 3 Dec 2025 00:05:27 +0000</pubDate></item><item><title>Encrypted DNS on Arch</title><link>https://mako088.github.io/arch/enc_dns.html</link><description><![CDATA[<p>❗ NOTE: There are many other ways for someone monitoring your traffic to see
+what domain you looked up via DNS that it’s effectiveness is questionable
+without also using Tor or a VPN. Encrypted DNS will not help you hide any of
+your browsing activity.</p><pre><code class="language-bash">sudo pacman -S dnscrypt-proxy
+</code></pre>
+<blockquote>
+```
+
+_Truncated example for brevity_
+
+</details>
+
 - **Atom 1.0** (`atom.xml`): A better-specified XML format with stricter
   semantics and less ambiguity than RSS. Nice choice if you care about standards
   correctness and richer metadata but still want XML.
 
+<details>
+<summary> ✔️ Atom example (atom.xml)</summary>
+
+```xml
+<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>privacy-book</title><id>https://mako088.github.io/atom.xml</id><updated>1970-01-01T00:00:00+00:00</updated><link href="https://mako088.github.io/atom.xml" rel="self"/><subtitle>An mdBook-generated site</subtitle><entry><title>index</title><id>https://mako088.github.io/index.html</id><updated>2025-12-03T00:05:27+00:00</updated><link href="https://mako088.github.io/index.html" rel="alternate"/><content type="html"></content></entry><entry><title>Encrypted DNS on Arch</title><id>https://mako088.github.io/arch/enc_dns.html</id><updated>2025-11-28T00:00:00+00:00</updated><link href="https://mako088.github.io/arch/enc_dns.html" rel="alternate"/><content type="html">&lt;p&gt;❗ NOTE: There are many other ways for someone monitoring your traffic to see
+what domain you looked up via DNS that it’s effectiveness is questionable
+without also using Tor or a VPN. Encrypted DNS will not help you hide any of
+your browsing activity.&lt;/p&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot;&gt;sudo pacman -S dnscrypt-proxy
+&lt;/code&gt;&lt;/pre&gt;
+&lt;blockquote&gt;
+&lt;p&gt;NOTE: udp is required for dnscrypt protocol, keep this in mind when
+```
+
+_Truncated example for brevity_
+
+</details>
+
 - **JSON Feed 1.1** (`feed.json`): A feed format based on JSON instead of XML,
-  designed to be easy to consume from modern applications. This is often the
-  easiest to parse if you’re writing custom tools, because you can treat it as
-  ordinary JSON rather than dealing with XML parsing.
+  designed to be easy to consume from modern applications, thus being noticeably
+  faster. This is often the easiest to parse if you’re writing custom tools,
+  because you can treat it as ordinary JSON rather than dealing with XML
+  parsing.
+
+<details>
+<summary>✔️ JSON Feed example (feed.json)</summary>
+
+```json
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "privacy-book",
+  "home_page_url": "https://mako088.github.io/",
+  "feed_url": "https://mako088.github.io/feed.json",
+  "description": "An mdBook-generated site",
+  "items": [
+    {
+      "id": "https://mako088.github.io/index.html",
+      "url": "https://mako088.github.io/index.html",
+      "title": "index",
+      "content_html": "",
+      "date_published": "2025-12-03T00:05:27+00:00"
+    },
+    {
+      "id": "https://mako088.github.io/arch/enc_dns.html",
+      "url": "https://mako088.github.io/arch/enc_dns.html",
+      "title": "Encrypted DNS on Arch",
+      "content_html": "<p>❗ NOTE: There are many other ways for someone monitoring your traffic to see\nwhat domain you looked up via DNS that it’s effectiveness is questionable\nwithout also using Tor or a VPN. Encrypted DNS will not help you hide any of\nyour browsing activity.</p><pre><code class=\"language-bash\">sudo pacman -S dnscrypt-proxy\n</code></pre>\n<blockquote>\n<p>NOTE: udp is required for dnscrypt protocol, keep this in mind when\nconfiguring your servers if your output chain is a default drop.</p><p><a href=\"https://wiki.archlinux.org/title/Dnscrypt-proxy\">Arch Wiki dnscrypt-proxy</a></p>",
+      "date_published": "2025-11-28T00:00:00+00:00",
+      "author": {
+        "name": "saylesss88"
+      }
+    },
+```
+
+_Truncated example shown for brevity_
+
+</details>
 
 ---
 
