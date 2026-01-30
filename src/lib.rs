@@ -109,12 +109,13 @@ pub struct Article {
     pub path: String,
 }
 
-/// Parse a single Markdown file into `Article`.
+/// Parses a markdown file and returns an Article.
 ///
-/// This looks for a leading `---`…`---` YAML frontmatter block, parses it into
-/// `FrontMatter`, and treats the rest of the file as the chapter body. When no
-/// frontmatter is found or parsing fails, reasonable defaults are used and the
-/// file's modification time becomes the fallback date.
+/// # Panics
+/// # Errors
+///
+/// This function will panic if the path has no file stem (e.g., if it's a directory or has no filename).
+/// Will return `Err` if path doesn't exist
 pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
     let text = fs::read_to_string(path)?;
 
@@ -129,9 +130,8 @@ pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
             if !in_yaml {
                 in_yaml = true;
                 continue;
-            } else {
-                break;
             }
+            break;
         }
         if in_yaml {
             yaml.push_str(line);
@@ -149,20 +149,20 @@ pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
         .map(systemtime_to_utc);
 
     // Parse front matter
-    let fm = if !yaml.trim().is_empty() {
-        serde_yaml::from_str(&yaml).unwrap_or_else(|_| FrontMatter {
-            title: path.file_stem().unwrap().to_string_lossy().into_owned(),
-            date: fallback_date,
-            author: None,
-            description: Some(content.clone()),
-        })
-    } else {
+    let fm = if yaml.trim().is_empty() {
         FrontMatter {
             title: path.file_stem().unwrap().to_string_lossy().into_owned(),
             date: fallback_date,
             author: None,
             description: Some(content.clone()),
         }
+    } else {
+        serde_yaml::from_str(&yaml).unwrap_or_else(|_| FrontMatter {
+            title: path.file_stem().unwrap().to_string_lossy().into_owned(),
+            date: fallback_date,
+            author: None,
+            description: Some(content.clone()),
+        })
     };
 
     let rel_path = path.strip_prefix(root).unwrap_or(path);
@@ -179,10 +179,16 @@ pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
 /// Walks the directory tree, skipping `SUMMARY.md` and non-Markdown files,
 /// parses each chapter into an `Article`, then sorts the list newest → oldest
 /// based on frontmatter `date` (falling back to file modification time).
+/// Parses a markdown file and returns an Article.
+///
+/// # Panics
+/// # Errors
+/// This function will panic if the path has no file stem
+/// Will return `Err` if `src_dir` doesn't exist
 pub fn collect_articles(src_dir: &Path) -> Result<Vec<Article>> {
     let mut articles = Vec::new();
 
-    for entry in WalkDir::new(src_dir).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(src_dir).into_iter().filter_map(Result::ok) {
         let path = entry.path();
         if !path.is_file() {
             continue;
@@ -191,7 +197,7 @@ pub fn collect_articles(src_dir: &Path) -> Result<Vec<Article>> {
         let ext = path
             .extension()
             .and_then(|e| e.to_str())
-            .map(|s| s.to_ascii_lowercase());
+            .map(str::to_ascii_lowercase);
 
         if !matches!(ext.as_deref(), Some("md" | "markdown")) {
             continue;
@@ -303,16 +309,14 @@ fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize) ->
 
     while count < max_paragraphs {
         // Find next <p ...>
-        let rel = match html[start..].find("<p") {
-            Some(i) => i,
-            None => break,
+        let Some(rel) = html[start..].find("<p") else {
+            break;
         };
         let p_start = start + rel;
 
         // Find the end of this paragraph
-        let rel_close = match html[p_start..].find("</p>") {
-            Some(i) => i,
-            None => break,
+        let Some(rel_close) = html[p_start..].find("</p>") else {
+            break;
         };
         let close = p_start + rel_close + "</p>".len();
 
@@ -356,6 +360,7 @@ pub struct BuildResult {
 /// Convert an RSS 2.0 channel into a JSON Feed 1.1 structure.
 ///
 /// Used when `json-feed = true` in the configuration.
+#[must_use]
 pub fn rss_to_json_feed(
     channel: &Channel,
     feed_url: Option<&str>,
@@ -368,12 +373,12 @@ pub fn rss_to_json_feed(
             let id = item
                 .guid()
                 .map(|g| g.value().to_string())
-                .or_else(|| item.link().map(|l| l.to_string()))
+                .or_else(|| item.link().map(std::string::ToString::to_string))
                 .unwrap_or_else(|| item.title().unwrap_or("").to_string());
 
-            let url = item.link().map(|l| l.to_string());
-            let title = item.title().map(|t| t.to_string());
-            let content_html = item.description().map(|d| d.to_string());
+            let url = item.link().map(std::string::ToString::to_string);
+            let title = item.title().map(std::string::ToString::to_string);
+            let content_html = item.description().map(std::string::ToString::to_string);
             let date_published = item.pub_date().and_then(|d| {
                 DateTime::parse_from_rfc2822(d)
                     .ok()
@@ -397,9 +402,9 @@ pub fn rss_to_json_feed(
         version: "https://jsonfeed.org/version/1.1".to_string(),
         title: channel.title().to_string(),
         home_page_url: Some(channel.link().to_string()),
-        feed_url: feed_url.map(|u| u.to_string()),
+        feed_url: feed_url.map(std::string::ToString::to_string),
         description: Some(channel.description().to_string()),
-        next_url: next_url.map(|u| u.to_string()),
+        next_url: next_url.map(std::string::ToString::to_string),
         items,
     }
 }
@@ -408,6 +413,7 @@ pub fn rss_to_json_feed(
 /// This is a best-effort mapping used when `atom = true` in the configuration.
 /// It copies titles, links, descriptions (as HTML content), and dates where
 /// available.
+#[must_use]
 pub fn rss_to_atom(channel: &Channel) -> AtomFeed {
     let entries: Vec<AtomEntry> = channel
         .items()
@@ -419,7 +425,7 @@ pub fn rss_to_atom(channel: &Channel) -> AtomFeed {
             let entry_id = item
                 .guid()
                 .map(|g| g.value().to_string())
-                .or_else(|| item.link().map(|l| l.to_string()))
+                .or_else(|| item.link().map(std::string::ToString::to_string))
                 .unwrap_or_else(|| item.title().unwrap_or("").to_string());
             entry.set_id(entry_id);
 
@@ -454,16 +460,16 @@ pub fn rss_to_atom(channel: &Channel) -> AtomFeed {
     feed.set_entries(entries);
 
     let link = channel.link();
-    if !link.is_empty() {
+    if link.is_empty() {
+        // Fallback id if link is somehow empty
+        feed.set_id(channel.title().to_string());
+    } else {
         feed.set_links(vec![AtomLink {
             href: link.to_string(),
             ..Default::default()
         }]);
         // Use the public feed URL as a stable Atom feed id
         feed.set_id(link.to_string());
-    } else {
-        // Fallback id if link is somehow empty
-        feed.set_id(channel.title().to_string());
     }
 
     let desc = channel.description();
@@ -493,9 +499,13 @@ pub fn rss_to_atom(channel: &Channel) -> AtomFeed {
 ///   shortened preview in `<description>`.
 /// - `max_items`: maximum items per feed page when pagination is enabled.
 /// - `paginated`: enable or disable multi-page feeds.
-///
+/// # Errors
 /// On success, the caller is responsible for writing each `FeedPage`'s channel
 /// to disk at `pages[i].filename`.
+/// Will return `Err` if:
+/// - The `src_dir` can't be accessed or doesn't exist
+/// - `collect_articles` fails to read or parse the md files
+/// - There are underlying I/O issues when walking the directory tree
 pub fn build_feed(
     src_dir: &Path,
     title: &str,
@@ -534,6 +544,8 @@ pub fn build_feed(
                 // Full-content mode: always use the full body markdown
                 source_md = article.content.as_str();
             } else {
+                // Only consider the first slice of markdown for preview
+                const PREVIEW_MD_SLICE_CHARS: usize = 4000;
                 // Preview mode: existing hybrid logic (body vs description, boilerplate strip, slice)
                 let content_trimmed = article.content.trim();
                 let body_len = content_trimmed.chars().count();
@@ -548,8 +560,6 @@ pub fn build_feed(
                 // Strip obvious leading boilerplate so we start near the intro text
                 source_md = strip_leading_boilerplate(source_md);
 
-                // Only consider the first slice of markdown for preview
-                const PREVIEW_MD_SLICE_CHARS: usize = 4000;
                 source_md = utf8_prefix(source_md, PREVIEW_MD_SLICE_CHARS);
             }
 
@@ -569,7 +579,7 @@ pub fn build_feed(
             item.link(Some(link.clone()));
             item.description(Some(preview)); // Stored directly inside CDATA
             item.guid(Some(Guid {
-                value: link.clone(),
+                value: link,
                 permalink: true,
             }));
 
