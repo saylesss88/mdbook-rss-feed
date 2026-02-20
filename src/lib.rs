@@ -6,7 +6,7 @@
 
 use anyhow::Result;
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
-use pulldown_cmark::{html, Options, Parser};
+use pulldown_cmark::{Options, Parser, html};
 use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
 use serde::{Deserialize, Deserializer};
 use serde_json::Value as JsonValue;
