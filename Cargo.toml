@@ -26,7 +26,6 @@ name = "mdbook-rss-feed"
 path = "src/bin/mdbook-rss-feed.rs"
 
 [dependencies]
-clap = {version = "4", features = ["derive"]}
 anyhow = "1"
 walkdir = "2"
 rss = {version = "2", features = ["builders"]}
