@@ -7,11 +7,14 @@
 mod article;
 mod error;
 mod frontmatter;
+mod preview;
 
 use crate::error::Result;
+use crate::preview::{
+    html_first_paragraphs, markdown_to_html, strip_leading_boilerplate, utf8_prefix,
+};
 pub use article::{collect_articles, parse_markdown_file, Article};
 use chrono::{DateTime, Utc};
-use pulldown_cmark::{html, Options, Parser};
 use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
 use serde_json::Value as JsonValue;
 use std::{path::Path, time::SystemTime};
@@ -53,127 +56,9 @@ use atom_syndication::{
     Text as AtomText,
 };
 
-// Minimum body length (in chars) before we prefer it over description
-const MIN_BODY_PREVIEW_CHARS: usize = 80;
-
 // Convert file modification time → UTC
 fn systemtime_to_utc(st: SystemTime) -> DateTime<Utc> {
     DateTime::<Utc>::from(st)
-}
-
-/// Render Markdown to HTML using `pulldown_cmark`.
-///
-/// This is used both for full-content feeds and for generating HTML previews
-/// from chapter bodies or frontmatter descriptions.
-fn markdown_to_html(md: &str) -> String {
-    let mut html = String::new();
-    let parser = Parser::new_ext(md, Options::all());
-    html::push_html(&mut html, parser);
-    html
-}
-
-/// Strip obvious leading boilerplate (TOCs, details, long definition blocks)
-/// so previews tend to start at the main intro text instead of metadata or
-/// navigation.
-fn strip_leading_boilerplate(md: &str) -> &str {
-    let mut seen_heading = false;
-    let mut byte_idx = 0;
-    let mut acc_bytes = 0;
-
-    for (i, line) in md.lines().enumerate() {
-        let line_len_with_nl = line.len() + 1; // assume '\n' separated
-
-        // Skip initial blank lines entirely
-        if i == 0 && line.trim().is_empty() {
-            acc_bytes += line_len_with_nl;
-            continue;
-        }
-
-        if line.trim_start().starts_with('#') {
-            seen_heading = true;
-        }
-
-        if seen_heading && line.trim().is_empty() {
-            // First blank line after heading: start preview after this
-            acc_bytes += line_len_with_nl;
-            byte_idx = acc_bytes;
-            break;
-        }
-
-        acc_bytes += line_len_with_nl;
-    }
-
-    if byte_idx == 0 {
-        md
-    } else {
-        &md[byte_idx.min(md.len())..]
-    }
-}
-
-/// Take at most `max_chars` worth of UTF‑8 text from `s`.
-fn utf8_prefix(s: &str, max_chars: usize) -> &str {
-    if max_chars == 0 {
-        return "";
-    }
-
-    let mut last_byte = 0;
-
-    for (ch_idx, (byte_idx, _)) in s.char_indices().enumerate() {
-        if ch_idx == max_chars {
-            last_byte = byte_idx;
-            break;
-        }
-        last_byte = byte_idx + 1;
-    }
-
-    if last_byte == 0 || last_byte >= s.len() {
-        s
-    } else {
-        &s[..last_byte]
-    }
-}
-
-/// Return the first few `<p>` blocks from an HTML fragment.
-///
-/// This is used to build the `<description>` preview for each item. At most
-/// `max_paragraphs` paragraphs are included, and the result is truncated to
-/// `max_chars` characters (UTF‑8 safe). If no `<p>` is found, the original
-/// HTML is returned unchanged.
-fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize) -> String {
-    let mut out = String::new();
-    let mut start = 0;
-    let mut count = 0;
-
-    while count < max_paragraphs {
-        // Find next <p ...>
-        let Some(rel) = html[start..].find("<p") else {
-            break;
-        };
-        let p_start = start + rel;
-
-        // Find the end of this paragraph
-        let Some(rel_close) = html[p_start..].find("</p>") else {
-            break;
-        };
-        let close = p_start + rel_close + "</p>".len();
-
-        let para = &html[p_start..close];
-        out.push_str(para);
-        count += 1;
-        start = close;
-    }
-
-    // If no <p> found, fall back to original HTML
-    if out.is_empty() {
-        out = html.to_string();
-    }
-
-    // UTF‑8 safe trim by character count
-    if out.chars().count() > max_chars {
-        out.chars().take(max_chars).collect()
-    } else {
-        out
-    }
 }
 
 /// One generated RSS feed file.
