@@ -5,12 +5,13 @@
 //! static hosting.
 
 mod error;
+mod frontmatter;
 
 use crate::error::{FeedError, Result};
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use crate::frontmatter::FrontMatter;
+use chrono::{DateTime, Utc};
 use pulldown_cmark::{html, Options, Parser};
 use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
-use serde::{Deserialize, Deserializer};
 use serde_json::Value as JsonValue;
 use std::{fs, path::Path, time::SystemTime};
 use walkdir::WalkDir;
@@ -58,45 +59,6 @@ const MIN_BODY_PREVIEW_CHARS: usize = 80;
 // Convert file modification time → UTC
 fn systemtime_to_utc(st: SystemTime) -> DateTime<Utc> {
     DateTime::<Utc>::from(st)
-}
-
-// Parse front-matter date formats
-fn deserialize_date<'de, D>(deserializer: D) -> std::result::Result<Option<DateTime<Utc>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: Option<String> = Option::deserialize(deserializer)?;
-
-    if let Some(date_str) = s {
-        if let Ok(dt) = DateTime::parse_from_rfc3339(&date_str) {
-            return Ok(Some(dt.with_timezone(&Utc)));
-        }
-
-        if let Ok(nd) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
-            return Ok(Some(
-                Utc.from_utc_datetime(&nd.and_hms_opt(0, 0, 0).unwrap()),
-            ));
-        }
-    }
-    Ok(None)
-}
-
-/// Parsed YAML frontmatter for a single chapter.
-///
-/// Fields are used for feed metadata:
-/// - `title`: item title shown in the feed.
-/// - `date`: publish date for sorting and `pubDate` (RFC3339 or `YYYY-MM-DD`).
-/// - `author`: optional item author.
-/// - `description`: optional summary/preview override.
-#[derive(Debug, Deserialize, Clone)]
-pub struct FrontMatter {
-    pub title: String,
-
-    #[serde(deserialize_with = "deserialize_date")]
-    pub date: Option<DateTime<Utc>>,
-
-    pub author: Option<String>,
-    pub description: Option<String>, // User-supplied summary (optional)
 }
 
 /// A chapter plus its parsed metadata.
