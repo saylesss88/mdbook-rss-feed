@@ -67,12 +67,12 @@ fn build_channel(title: &str, base_url: &str, description: &str, items: &[Item])
 }
 
 /// Split `items` into one or more [`FeedPage`]s according to `opts`.
-fn paginate(items: Vec<Item>, opts: &FeedOptions<'_>, base_url: &str) -> Vec<FeedPage> {
+fn paginate(items: &[Item], opts: &FeedOptions<'_>, base_url: &str) -> Vec<FeedPage> {
     let mut pages = Vec::new();
 
     let should_paginate = opts.paginated && opts.max_items > 0 && items.len() > opts.max_items;
     if !should_paginate {
-        let channel = build_channel(opts.title, base_url, opts.description, &items);
+        let channel = build_channel(opts.title, base_url, opts.description, items);
         pages.push(FeedPage {
             filename: "rss.xml".to_string(),
             channel,
@@ -144,6 +144,6 @@ pub fn build_feed(src_dir: &Path, opts: &FeedOptions<'_>) -> Result<BuildResult>
         .collect();
 
     Ok(BuildResult {
-        pages: paginate(items, opts, base_url),
+        pages: paginate(&items, opts, base_url),
     })
 }

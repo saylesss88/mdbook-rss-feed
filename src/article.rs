@@ -135,8 +135,7 @@ pub fn collect_articles(src_dir: &Path) -> Result<Vec<Article>> {
 
         let is_summary = path
             .file_name()
-            .map(|n| n.to_string_lossy().eq_ignore_ascii_case("SUMMARY.md"))
-            .unwrap_or(false);
+            .is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case("SUMMARY.md"));
         if is_summary {
             continue;
         }

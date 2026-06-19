@@ -4,7 +4,7 @@ use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use serde::{Deserialize, Deserializer};
 
 /// Parse front-matter date formats (RFC3339 or `YYYY-MM-DD`).
-pub(crate) fn deserialize_date<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+pub fn deserialize_date<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
 where
     D: Deserializer<'de>,
 {

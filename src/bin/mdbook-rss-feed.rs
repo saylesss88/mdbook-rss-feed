@@ -80,7 +80,7 @@ impl FeedConfig {
                 .unwrap_or(false),
         }
     }
-    fn feed_options<'a>(&'a self) -> FeedOptions<'a> {
+    fn feed_options(&self) -> FeedOptions<'_> {
         FeedOptions {
             title: &self.title,
             site_url: &self.site_url,
@@ -92,7 +92,7 @@ impl FeedConfig {
     }
 }
 
-fn write_rss_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) {
+fn write_rss_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) -> io::Result<()> {
     for page in pages {
         let rss_path = config.src_dir.join(&page.filename);
         let rss_content = page.channel.to_string();
@@ -101,16 +101,20 @@ fn write_rss_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) {
             rss_path.display(),
             rss_content.len()
         );
-        fs::write(&rss_path, &rss_content).expect("Failed to write RSS file");
+        fs::write(&rss_path, &rss_content)?;
     }
+    Ok(())
 }
 
 #[cfg(feature = "json-feed")]
-fn write_json_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) {
+fn write_json_pages(
+    config: &FeedConfig,
+    pages: &[mdbook_rss_feed::FeedPage],
+) -> Result<(), Box<dyn std::error::Error>> {
     use mdbook_rss_feed::rss_to_json_feed;
 
     if !config.json_enabled {
-        return;
+        return Ok(());
     }
     for (page_idx, page) in pages.iter().enumerate() {
         let suffix = if page_idx == 0 {
@@ -125,20 +129,25 @@ fn write_json_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) {
         } else {
             format!("feed{}.json", page_idx + 1)
         });
-        fs::write(&json_path, serde_json::to_vec_pretty(&json_feed).unwrap())
-            .expect("JSON write failed");
+        fs::write(&json_path, serde_json::to_vec_pretty(&json_feed)?)?;
     }
+    Ok(())
 }
 
 #[cfg(not(feature = "json-feed"))]
-fn write_json_pages(_config: &FeedConfig, _pages: &[mdbook_rss_feed::FeedPage]) {}
+fn write_json_pages(
+    _config: &FeedConfig,
+    _pages: &[mdbook_rss_feed::FeedPage],
+) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(())
+}
 
 #[cfg(feature = "atom")]
-fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) {
+fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) -> io::Result<()> {
     use mdbook_rss_feed::rss_to_atom;
 
     if !config.atom_enabled {
-        return;
+        return Ok(());
     }
     for (page_idx, page) in pages.iter().enumerate() {
         let atom_feed = rss_to_atom(&page.channel);
@@ -147,44 +156,45 @@ fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) {
         } else {
             format!("atom{}.xml", page_idx + 1)
         });
-        fs::write(&atom_path, atom_feed.to_string()).expect("Atom write failed");
+        fs::write(&atom_path, atom_feed.to_string())?;
     }
+    Ok(())
 }
 
 #[cfg(not(feature = "atom"))]
-fn write_atom_pages(_config: &FeedConfig, _pages: &[mdbook_rss_feed::FeedPage]) {}
+fn write_atom_pages(_config: &FeedConfig, _pages: &[mdbook_rss_feed::FeedPage]) -> io::Result<()> {
+    Ok(())
+}
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     if handle_mdbook_hooks(&args) {
-        return;
+        return Ok(());
     }
 
     // 1. READ STDIN
     let mut input = String::new();
-    io::stdin()
-        .read_to_string(&mut input)
-        .expect("Failed to read stdin");
+    io::stdin().read_to_string(&mut input)?;
 
     // 2. PARSE JSON
-    let input_array: Vec<Value> = serde_json::from_str(&input).expect("Invalid JSON");
-    if input_array.len() < 2 {
-        std::process::exit(1);
-    }
+    let input_array: Vec<Value> = serde_json::from_str(&input)?;
+    let [_context, _book] = input_array.as_slice() else {
+        return Err("expected mdBook to send a [context, book] pair on stdin".into());
+    };
 
     // 3. EXTRACT CONFIG & BOOK
     let config = FeedConfig::from_json(&input_array[0]);
     let book = &input_array[1];
 
     // 4. BUILD FEED
-    let result =
-        build_feed(&config.src_dir, &config.feed_options()).expect("Failed to generate RSS feed");
+    let result = build_feed(&config.src_dir, &config.feed_options())?;
 
-    write_rss_pages(&config, &result.pages);
-    write_json_pages(&config, &result.pages);
-    write_atom_pages(&config, &result.pages);
+    write_rss_pages(&config, &result.pages)?;
+    write_json_pages(&config, &result.pages)?;
+    write_atom_pages(&config, &result.pages)?;
 
     // FINAL ECHO TO MDBOOK
-    let _ = io::stderr().flush();
-    println!("{}", serde_json::to_string(book).unwrap());
+    io::stderr().flush()?;
+    println!("{}", serde_json::to_string(book)?);
+    Ok(())
 }

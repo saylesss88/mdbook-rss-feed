@@ -8,17 +8,17 @@ use pulldown_cmark::{html, Options, Parser};
 
 /// Minimum body length (in chars) before we prefer it over the frontmatter
 /// `description` as the preview source.
-pub(crate) const MIN_BODY_PREVIEW_CHARS: usize = 80;
+pub const MIN_BODY_PREVIEW_CHARS: usize = 80;
 
 /// Maximum amount of markdown (in chars) considered when building a preview,
 /// applied before HTML conversion to bound rendering cost on huge chapters.
-pub(crate) const PREVIEW_MD_SLICE_CHARS: usize = 4000;
+pub const PREVIEW_MD_SLICE_CHARS: usize = 4000;
 
 /// Render Markdown to HTML using `pulldown_cmark`.
 ///
 /// Used both for full-content feeds and for generating HTML previews from
 /// chapter bodies or frontmatter descriptions.
-pub(crate) fn markdown_to_html(md: &str) -> String {
+pub fn markdown_to_html(md: &str) -> String {
     let mut html = String::new();
     let parser = Parser::new_ext(md, Options::all());
     html::push_html(&mut html, parser);
@@ -32,7 +32,7 @@ pub(crate) fn markdown_to_html(md: &str) -> String {
 /// Heuristic: find the first heading, then return everything after the
 /// first blank line that follows it. If no heading is found, the input is
 /// returned unchanged.
-pub(crate) fn strip_leading_boilerplate(md: &str) -> &str {
+pub fn strip_leading_boilerplate(md: &str) -> &str {
     let mut seen_heading = false;
     let mut byte_idx = 0;
     let mut acc_bytes = 0;
@@ -68,7 +68,7 @@ pub(crate) fn strip_leading_boilerplate(md: &str) -> &str {
 }
 
 /// Take at most `max_chars` worth of UTF-8 text from `s`.
-pub(crate) fn utf8_prefix(s: &str, max_chars: usize) -> &str {
+pub fn utf8_prefix(s: &str, max_chars: usize) -> &str {
     if max_chars == 0 {
         return "";
     }
@@ -95,7 +95,7 @@ pub(crate) fn utf8_prefix(s: &str, max_chars: usize) -> &str {
 /// `max_paragraphs` paragraphs are included, and the result is truncated to
 /// `max_chars` characters (UTF-8 safe). If no `<p>` is found, the original
 /// HTML is returned unchanged.
-pub(crate) fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize) -> String {
+pub fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize) -> String {
     let mut out = String::new();
     let mut start = 0;
     let mut count = 0;
@@ -134,11 +134,7 @@ pub(crate) fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars
 /// `description` (preferring the body once it's long enough), strips
 /// leading boilerplate, slices it down before HTML conversion, and finally
 /// keeps only the first few rendered paragraphs.
-pub(crate) fn render_preview(
-    content: &str,
-    description: Option<&str>,
-    full_preview: bool,
-) -> String {
+pub fn render_preview(content: &str, description: Option<&str>, full_preview: bool) -> String {
     if full_preview {
         return markdown_to_html(content);
     }
