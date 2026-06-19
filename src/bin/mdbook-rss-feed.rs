@@ -31,7 +31,9 @@ struct FeedConfig {
     full_preview: bool,
     paginated: bool,
     max_items: usize,
+    #[cfg_attr(not(feature = "json-feed"), allow(dead_code))]
     json_enabled: bool,
+    #[cfg_attr(not(feature = "atom"), allow(dead_code))]
     atom_enabled: bool,
 }
 

@@ -55,11 +55,6 @@ Version Check:
 mdbook-rss-feed --version
 ```
 
-Tested against:
-
-- mdBook v0.4.40 & v0.5.1
-- Rust editions 2020 & 2024
-
 ---
 
 ## Usage
