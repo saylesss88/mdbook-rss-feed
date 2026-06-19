@@ -1,4 +1,4 @@
-use mdbook_rss_feed::{build_feed, rss_to_atom, rss_to_json_feed, FeedOptions};
+use mdbook_rss_feed::{build_feed, rss_to_atom, FeedOptions};
 use serde_json::Value;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -92,6 +92,65 @@ impl FeedConfig {
     }
 }
 
+fn write_rss_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) {
+    for page in pages {
+        let rss_path = config.src_dir.join(&page.filename);
+        let rss_content = page.channel.to_string();
+        eprintln!(
+            "Writing RSS page {} ({} bytes)",
+            rss_path.display(),
+            rss_content.len()
+        );
+        fs::write(&rss_path, &rss_content).expect("Failed to write RSS file");
+    }
+}
+
+#[cfg(feature = "json-feed")]
+fn write_json_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) {
+    use mdbook_rss_feed::rss_to_json_feed;
+
+    if !config.json_enabled {
+        return;
+    }
+    for (page_idx, page) in pages.iter().enumerate() {
+        let suffix = if page_idx == 0 {
+            String::new()
+        } else {
+            (page_idx + 1).to_string()
+        };
+        let self_url = format!("{}/feed{}.json", config.site_url, suffix);
+        let json_feed = rss_to_json_feed(&page.channel, Some(&self_url), None);
+        let json_path = config.src_dir.join(if page_idx == 0 {
+            "feed.json".to_string()
+        } else {
+            format!("feed{}.json", page_idx + 1)
+        });
+        fs::write(&json_path, serde_json::to_vec_pretty(&json_feed).unwrap())
+            .expect("JSON write failed");
+    }
+}
+
+#[cfg(not(feature = "json-feed"))]
+fn write_json_pages(_config: &FeedConfig, _pages: &[mdbook_rss_feed::FeedPage]) {}
+
+#[cfg(feature = "atom")]
+fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) {
+    use mdbook_rss_feed::rss_to_atom;
+
+    if !config.atom_enabled {
+        return;
+    }
+    for (page_idx, page) in pages.iter().enumerate() {
+        let atom_feed = rss_to_atom(&page.channel);
+        let atom_path = config.src_dir.join(if page_idx == 0 {
+            "atom.xml".to_string()
+        } else {
+            format!("atom{}.xml", page_idx + 1)
+        });
+        fs::write(&atom_path, atom_feed.to_string()).expect("Atom write failed");
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if handle_mdbook_hooks(&args) {
@@ -119,41 +178,8 @@ fn main() {
     let result =
         build_feed(&config.src_dir, &config.feed_options()).expect("Failed to generate RSS feed");
 
-    // 5. WRITE RSS PAGES
-    for page in &result.pages {
-        let rss_path = config.src_dir.join(&page.filename);
-        let rss_content = page.channel.to_string();
-
-        eprintln!(
-            "Writing RSS page {} ({} bytes)",
-            rss_path.display(),
-            rss_content.len()
-        );
-
-        fs::write(&rss_path, &rss_content).expect("Failed to write RSS file");
-    }
-
-    // 6. WRITE JSON FEED (Optional)
-    if config.json_enabled {
-        for (page_idx, page) in result.pages.iter().enumerate() {
-            let suffix = if page_idx == 0 {
-                String::new()
-            } else {
-                (page_idx + 1).to_string()
-            };
-            let self_url = format!("{}/feed{}.json", config.site_url, suffix);
-
-            let json_feed = rss_to_json_feed(&page.channel, Some(&self_url), None);
-            let json_path = config.src_dir.join(if page_idx == 0 {
-                "feed.json".into()
-            } else {
-                format!("feed{}.json", page_idx + 1)
-            });
-
-            fs::write(&json_path, serde_json::to_vec_pretty(&json_feed).unwrap())
-                .expect("JSON write failed");
-        }
-    }
+    write_rss_pages(&config, &result.pages);
+    write_json_pages(&config, &result.pages);
 
     // 7. WRITE ATOM FEED (Optional)
     if config.atom_enabled {
