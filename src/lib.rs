@@ -4,7 +4,9 @@
 //! and content, and turns them into one or more RSS 2.0 channels suitable for
 //! static hosting.
 
-use anyhow::Result;
+mod error;
+
+use crate::error::{FeedError, Result};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use pulldown_cmark::{html, Options, Parser};
 use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
@@ -25,7 +27,7 @@ pub struct JsonFeed {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_url: Option<String>, // <-- add this
+    pub next_url: Option<String>,
     pub items: Vec<JsonFeedItem>,
 }
 
@@ -41,7 +43,7 @@ pub struct JsonFeedItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub date_published: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub author: Option<JsonValue>, // allow simple or richer authors later
+    pub author: Option<JsonValue>,
 }
 
 // Optional Atom support
@@ -59,7 +61,7 @@ fn systemtime_to_utc(st: SystemTime) -> DateTime<Utc> {
 }
 
 // Parse front-matter date formats
-fn deserialize_date<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+fn deserialize_date<'de, D>(deserializer: D) -> std::result::Result<Option<DateTime<Utc>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -116,7 +118,7 @@ pub struct Article {
 ///
 /// This function will panic if the path has no file stem (e.g., if it's a directory or has no filename).
 /// Will return `Err` if path doesn't exist
-pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
+pub fn parse_markdown_file(root: &Path, path: &Path) -> std::io::Result<Article> {
     let text = fs::read_to_string(path)?;
 
     let mut lines = text.lines();
@@ -188,8 +190,13 @@ pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
 pub fn collect_articles(src_dir: &Path) -> Result<Vec<Article>> {
     let mut articles = Vec::new();
 
-    for entry in WalkDir::new(src_dir).into_iter().filter_map(Result::ok) {
+    for entry in WalkDir::new(src_dir) {
+        let entry = entry.map_err(|source| FeedError::WalkDir {
+            path: src_dir.to_path_buf(),
+            source,
+        })?;
         let path = entry.path();
+
         if !path.is_file() {
             continue;
         }
@@ -198,17 +205,15 @@ pub fn collect_articles(src_dir: &Path) -> Result<Vec<Article>> {
             .extension()
             .and_then(|e| e.to_str())
             .map(str::to_ascii_lowercase);
-
         if !matches!(ext.as_deref(), Some("md" | "markdown")) {
             continue;
         }
 
-        if path
+        let is_summary = path
             .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .eq_ignore_ascii_case("SUMMARY.md")
-        {
+            .map(|n| n.to_string_lossy().eq_ignore_ascii_case("SUMMARY.md"))
+            .unwrap_or(false);
+        if is_summary {
             continue;
         }
 
@@ -216,7 +221,6 @@ pub fn collect_articles(src_dir: &Path) -> Result<Vec<Article>> {
             articles.push(article);
         }
     }
-
     // Sort newest → oldest
     articles.sort_by_key(|a| a.fm.date);
     articles.reverse();
