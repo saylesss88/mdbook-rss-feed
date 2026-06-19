@@ -1,4 +1,4 @@
-use mdbook_rss_feed::{build_feed, rss_to_atom, rss_to_json_feed};
+use mdbook_rss_feed::{build_feed, rss_to_atom, rss_to_json_feed, FeedOptions};
 use serde_json::Value;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -80,6 +80,16 @@ impl FeedConfig {
                 .unwrap_or(false),
         }
     }
+    fn feed_options<'a>(&'a self) -> FeedOptions<'a> {
+        FeedOptions {
+            title: &self.title,
+            site_url: &self.site_url,
+            description: &self.description,
+            full_preview: self.full_preview,
+            max_items: self.max_items,
+            paginated: self.paginated,
+        }
+    }
 }
 
 fn main() {
@@ -105,16 +115,9 @@ fn main() {
     let book = &input_array[1];
 
     // 4. BUILD FEED
-    let result = build_feed(
-        &config.src_dir,
-        &config.title,
-        &config.site_url,
-        &config.description,
-        config.full_preview,
-        config.max_items,
-        config.paginated,
-    )
-    .expect("Failed to generate RSS feed");
+    //
+    let result =
+        build_feed(&config.src_dir, &config.feed_options()).expect("Failed to generate RSS feed");
 
     // 5. WRITE RSS PAGES
     for page in &result.pages {
