@@ -6,7 +6,7 @@
 
 use anyhow::Result;
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
-use pulldown_cmark::{Options, Parser, html};
+use pulldown_cmark::{html, Options, Parser};
 use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
 use serde::{Deserialize, Deserializer};
 use serde_json::Value as JsonValue;
@@ -157,7 +157,7 @@ pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
             description: Some(content.clone()),
         }
     } else {
-        serde_yaml::from_str(&yaml).unwrap_or_else(|_| FrontMatter {
+        yaml_serde::from_str(&yaml).unwrap_or_else(|_| FrontMatter {
             title: path.file_stem().unwrap().to_string_lossy().into_owned(),
             date: fallback_date,
             author: None,
