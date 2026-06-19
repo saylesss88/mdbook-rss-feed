@@ -1,4 +1,4 @@
-use mdbook_rss_feed::{build_feed, rss_to_atom, FeedOptions};
+use mdbook_rss_feed::{build_feed, FeedOptions};
 use serde_json::Value;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -151,6 +151,9 @@ fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) {
     }
 }
 
+#[cfg(not(feature = "atom"))]
+fn write_atom_pages(_config: &FeedConfig, _pages: &[mdbook_rss_feed::FeedPage]) {}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if handle_mdbook_hooks(&args) {
@@ -174,28 +177,14 @@ fn main() {
     let book = &input_array[1];
 
     // 4. BUILD FEED
-    //
     let result =
         build_feed(&config.src_dir, &config.feed_options()).expect("Failed to generate RSS feed");
 
     write_rss_pages(&config, &result.pages);
     write_json_pages(&config, &result.pages);
+    write_atom_pages(&config, &result.pages);
 
-    // 7. WRITE ATOM FEED (Optional)
-    if config.atom_enabled {
-        for (page_idx, page) in result.pages.iter().enumerate() {
-            let atom_feed = rss_to_atom(&page.channel);
-            let atom_path = config.src_dir.join(if page_idx == 0 {
-                "atom.xml".into()
-            } else {
-                format!("atom{}.xml", page_idx + 1)
-            });
-
-            fs::write(&atom_path, atom_feed.to_string()).expect("Atom write failed");
-        }
-    }
-
-    // 8. FINAL ECHO TO MDBOOK
+    // FINAL ECHO TO MDBOOK
     let _ = io::stderr().flush();
     println!("{}", serde_json::to_string(book).unwrap());
 }

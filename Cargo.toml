@@ -35,10 +35,11 @@ pulldown-cmark = {version = "0.13", features = [
 	"html",
 ], default-features = false}
 serde_json = "1"
-atom_syndication = {version = "0.12", default-features = false}
+atom_syndication = {version = "0.12", default-features = false, optional = true}
 yaml_serde = "0.10.4"
 thiserror = "2.0.18"
 
 [features]
 default = []
 json-feed = []
+atom = ["dep:atom_syndication"]
