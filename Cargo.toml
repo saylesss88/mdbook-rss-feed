@@ -26,18 +26,18 @@ name = "mdbook-rss-feed"
 path = "src/bin/mdbook-rss-feed.rs"
 
 [dependencies]
-anyhow = {version = "1", default-features = false}
+anyhow = {version = "1.0.104", default-features = false}
 walkdir = "2"
-rss = "2"
+rss = "2.1.0"
 serde = {version = "1", features = ["serde_derive"], default-features = false}
 chrono = {version = "0.4", features = ["std"], default-features = false}
 pulldown-cmark = {version = "0.13", features = [
 	"html",
 ], default-features = false}
 serde_json = "1"
-atom_syndication = {version = "0.12", default-features = false, optional = true}
+atom_syndication = {version = "0.12.10", default-features = false, optional = true}
 yaml_serde = "0.10.4"
-thiserror = "2.0.18"
+thiserror = "2.0.19"
 
 [features]
 default = []

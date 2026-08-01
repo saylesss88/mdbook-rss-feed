@@ -38,6 +38,8 @@ If you set `atom = true` or `json-feed = true` in `book.toml` without
 installing the matching feature, the preprocessor prints a warning to stderr
 and skips that output rather than failing the build.
 
+Version check:
+
 ```bash
 mdbook-rss-feed --version
 ```
@@ -269,6 +271,9 @@ additional-js = ["theme/rss-button.js"]
 ```
 
 `theme/rss-button.js`:
+
+> [!NOTE]
+> Make sure to change the line `rssLink.href = "https://your-user.github.io/rss.xml"; // set to your feed URL` to your page.
 
 ```js
 document.addEventListener("DOMContentLoaded", () => {
