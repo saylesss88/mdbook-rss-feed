@@ -29,6 +29,24 @@ where
     Ok(None)
 }
 
+/// Per-chapter feed inclusion control, set via the `feed` frontmatter key.
+///
+/// ```yaml
+/// ---
+/// feed: include   # always include this chapter regardless of default-behavior
+/// feed: exclude   # always exclude this chapter regardless of default-behavior
+/// ---
+/// ```
+///
+/// When absent, the chapter follows the book-level `default-behavior` setting
+/// (`include-all` by default).
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum FeedVisibility {
+    Include,
+    Exclude,
+}
+
 /// Parsed YAML frontmatter for a single chapter.
 ///
 /// Fields are used for feed metadata:
@@ -44,4 +62,8 @@ pub struct FrontMatter {
     pub author: Option<String>,
     /// User-supplied summary, used as a fallback preview source.
     pub description: Option<String>,
+    /// Per-chapter feed inclusion override. When absent, the chapter follows
+    /// the book-level `default-behavior` (`include-all` by default).
+    #[serde(default)]
+    pub feed: Option<FeedVisibility>,
 }

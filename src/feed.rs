@@ -4,8 +4,9 @@ use std::path::Path;
 
 use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
 
-use crate::article::collect_articles;
+use crate::article::{collect_articles, Article};
 use crate::error::Result;
+use crate::frontmatter::FeedVisibility;
 use crate::preview::render_preview;
 
 /// One generated RSS feed file.
@@ -27,6 +28,26 @@ pub struct BuildResult {
     pub pages: Vec<FeedPage>,
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum DefaultBehavior {
+    /// Include every chapter unless explicitly marked `feed: exclude`.
+    /// This is the default when `default-behavior` is not set.
+    #[default]
+    IncludeAll,
+    /// Exclude every chapter unless explicitly marked `feed: include`.
+    ExcludeAll,
+}
+
+impl DefaultBehavior {
+    /// Parse from the string value in `book.toml`.
+    pub fn from_str(s: &str) -> Self {
+        match s.trim() {
+            "exclude-all" => Self::ExcludeAll,
+            _ => Self::IncludeAll,
+        }
+    }
+}
+
 /// Options controlling how a feed is built.
 ///
 /// Grouping these avoids a long positional-argument list at the call site
@@ -40,6 +61,18 @@ pub struct FeedOptions<'a> {
     pub full_preview: bool,
     pub max_items: usize,
     pub paginated: bool,
+    pub default_behavior: DefaultBehavior,
+}
+
+/// Return `true` if this article should appear in the feed given `default_behavior`.
+fn article_is_included(article: &Article, default_behavior: &DefaultBehavior) -> bool {
+    match &article.fm.feed {
+        // Explicit per-chapter override always wins.
+        Some(FeedVisibility::Include) => true,
+        Some(FeedVisibility::Exclude) => false,
+        // No override: fall back to the book-level default.
+        None => *default_behavior == DefaultBehavior::IncludeAll,
+    }
 }
 
 /// Build the absolute `.html` link for an article, given its `src`-relative
@@ -99,24 +132,11 @@ fn paginate(items: &[Item], opts: &FeedOptions<'_>, base_url: &str) -> Vec<FeedP
     pages
 }
 
-/// Build one or more RSS 2.0 feeds for an mdBook.
-///
-/// This scans `src_dir` for chapters, extracts frontmatter, generates HTML
-/// previews, and returns a [`BuildResult`] containing one or more
-/// [`FeedPage`]s. The first page is always `rss.xml`; when `opts.paginated`
-/// is `true` and `opts.max_items > 0`, additional pages `rss2.xml`,
-/// `rss3.xml`, … are created.
-///
-/// # Errors
-/// Returns `Err` if:
-/// - `src_dir` can't be accessed or doesn't exist
-/// - reading or walking the directory tree fails
-pub fn build_feed(src_dir: &Path, opts: &FeedOptions<'_>) -> Result<BuildResult> {
-    let articles = collect_articles(src_dir)?;
-    let base_url = opts.site_url.trim_end_matches('/');
-
-    let items: Vec<Item> = articles
+/// Convert a list of [`Article`]s into RSS [`Item`]s, applying filtering.
+fn articles_to_items(articles: Vec<Article>, opts: &FeedOptions<'_>, base_url: &str) -> Vec<Item> {
+    articles
         .into_iter()
+        .filter(|a| article_is_included(a, &opts.default_behavior))
         .map(|article| {
             let link = article_link(base_url, &article.path);
             let preview = render_preview(
@@ -141,9 +161,27 @@ pub fn build_feed(src_dir: &Path, opts: &FeedOptions<'_>) -> Result<BuildResult>
             }
             item.build()
         })
-        .collect();
+        .collect()
+}
 
-    Ok(BuildResult {
+pub fn build_feed_from_articles(articles: Vec<Article>, opts: &FeedOptions<'_>) -> BuildResult {
+    let base_url = opts.site_url.trim_end_matches('/');
+    let items = articles_to_items(articles, opts, base_url);
+    BuildResult {
         pages: paginate(&items, opts, base_url),
-    })
+    }
+}
+
+/// Build one or more RSS 2.0 feeds by scanning `src_dir` on disk.
+///
+/// **Legacy path.** Does not expand `{{#include}}` directives and includes
+/// all `.md` files, not just those listed in `SUMMARY.md`. Prefer
+/// [`build_feed_from_articles`] with [`articles_from_book_json`] when
+/// running as an mdBook preprocessor.
+///
+/// # Errors
+/// Returns `Err` if `src_dir` can't be accessed or walked.
+pub fn build_feed(src_dir: &Path, opts: &FeedOptions<'_>) -> Result<BuildResult> {
+    let articles = collect_articles(src_dir)?;
+    Ok(build_feed_from_articles(articles, opts))
 }

@@ -1,8 +1,12 @@
-use mdbook_rss_feed::{build_feed, FeedOptions};
-use serde_json::Value;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
+
+use serde_json::Value;
+
+use mdbook_rss_feed::{
+    articles_from_book_json, build_feed_from_articles, DefaultBehavior, FeedOptions,
+};
 
 fn handle_mdbook_hooks(args: &[String]) -> bool {
     // Check for version
@@ -15,8 +19,7 @@ fn handle_mdbook_hooks(args: &[String]) -> bool {
 
     // Check for mdBook supports hook
     if args.get(1).map(String::as_str) == Some("supports") {
-        println!("true");
-        return true;
+        std::process::exit(0);
     }
 
     false
@@ -31,6 +34,7 @@ struct FeedConfig {
     full_preview: bool,
     paginated: bool,
     max_items: usize,
+    default_behavior: DefaultBehavior,
     #[cfg_attr(not(feature = "json-feed"), allow(dead_code))]
     json_enabled: bool,
     #[cfg_attr(not(feature = "atom"), allow(dead_code))]
@@ -43,6 +47,13 @@ impl FeedConfig {
             .pointer("/root")
             .and_then(|v| v.as_str())
             .unwrap_or(".");
+
+        let default_behavior = context
+            .pointer("/config/preprocessor/rss-feed/default-behavior")
+            .and_then(Value::as_str)
+            .map(DefaultBehavior::from_str)
+            .unwrap_or_default();
+
         Self {
             src_dir: PathBuf::from(root).join("src"),
             site_url: context
@@ -72,6 +83,7 @@ impl FeedConfig {
                 .pointer("/config/preprocessor/rss-feed/max-items")
                 .and_then(Value::as_u64)
                 .map_or(0, |n| usize::try_from(n).unwrap_or(usize::MAX)),
+            default_behavior,
             json_enabled: context
                 .pointer("/config/preprocessor/rss-feed/json-feed")
                 .and_then(Value::as_bool)
@@ -90,6 +102,7 @@ impl FeedConfig {
             full_preview: self.full_preview,
             max_items: self.max_items,
             paginated: self.paginated,
+            default_behavior: self.default_behavior.clone(),
         }
     }
 }
@@ -180,16 +193,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. PARSE JSON
     let input_array: Vec<Value> = serde_json::from_str(&input)?;
-    let [_context, _book] = input_array.as_slice() else {
+    let [context, book] = input_array.as_slice() else {
         return Err("expected mdBook to send a [context, book] pair on stdin".into());
     };
 
     // 3. EXTRACT CONFIG & BOOK
-    let config = FeedConfig::from_json(&input_array[0]);
-    let book = &input_array[1];
+    let config = FeedConfig::from_json(context);
 
     // 4. BUILD FEED
-    let result = build_feed(&config.src_dir, &config.feed_options())?;
+    let articles = articles_from_book_json(book);
+    eprintln!(
+        "mdbook-rss-feed: collected {} chapter(s) from book (default-behavior: {:?})",
+        articles.len(),
+        config.default_behavior,
+    );
+    let result = build_feed_from_articles(articles, &config.feed_options());
 
     write_rss_pages(&config, &result.pages)?;
     write_json_pages(&config, &result.pages)?;

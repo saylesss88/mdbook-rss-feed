@@ -14,10 +14,6 @@ pub enum FeedError {
         source: std::io::Error,
     },
 
-    /// A markdown chapter had no usable file stem (e.g. it was a directory).
-    #[error("path has no file stem: {0}")]
-    MissingFileStem(PathBuf),
-
     /// Walking the `src` directory failed.
     #[error("failed to walk directory {path}: {source}")]
     WalkDir {

@@ -1,6 +1,6 @@
 [package]
 name = "mdbook-rss-feed"
-version = "1.5.1"
+version = "1.6.0"
 edition = "2024"
 authors = ["T. Sawyer saylesss88@github.com"]
 license = "Apache-2.0"
@@ -37,7 +37,7 @@ pulldown-cmark = {version = "0.13", features = [
 serde_json = "1"
 atom_syndication = {version = "0.12.10", default-features = false, optional = true}
 yaml_serde = "0.10.4"
-thiserror = "2.0.19"
+thiserror = "2.0.20"
 
 [features]
 default = []

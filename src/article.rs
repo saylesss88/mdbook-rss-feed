@@ -3,6 +3,7 @@
 use std::{fs, path::Path, time::SystemTime};
 
 use chrono::{DateTime, Utc};
+use serde_json::Value;
 use walkdir::WalkDir;
 
 use crate::error::{FeedError, Result};
@@ -22,44 +23,29 @@ fn systemtime_to_utc(st: SystemTime) -> DateTime<Utc> {
 pub struct Article {
     pub fm: FrontMatter,
     pub content: String,
+    /// Path relative to the `src/` root (e.g. `"changelog.md"`)
     pub path: String,
 }
 
-fn file_stem_or_err(path: &Path) -> Result<String> {
-    path.file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .ok_or_else(|| FeedError::MissingFileStem(path.to_path_buf()))
-}
-
-fn fallback_frontmatter(
-    path: &Path,
-    content: &str,
-    fallback_date: Option<DateTime<Utc>>,
-) -> Result<FrontMatter> {
-    Ok(FrontMatter {
-        title: file_stem_or_err(path)?,
-        date: fallback_date,
-        author: None,
-        description: Some(content.to_string()),
-    })
-}
-
-/// Parses a markdown file and returns an [`Article`].
+/// Parse frontmatter from raw Markdown text.
 ///
-/// # Errors
-/// Returns `Err` if `path` can't be read, or if it has no usable file stem
-/// (e.g. it's a directory or has no filename).
-pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
-    let text = fs::read_to_string(path).map_err(|source| FeedError::Io {
-        path: path.to_path_buf(),
-        source,
-    })?;
-
-    let mut lines = text.lines();
+/// Returns `(frontmatter, body)` where `body` is the content after the
+/// closing `---` delimiter. If no valid frontmatter block is found, a
+/// minimal `FrontMatter` is synthesised from `title_hint` and
+/// `fallback_date`.
+///
+/// A warning is printed to stderr when YAML is present but fails to parse,
+/// so users can diagnose broken frontmatter instead of silently getting
+/// wrong metadata.
+pub fn parse_frontmatter(
+    raw: &str,
+    title_hint: &str,
+    fallback_date: Option<DateTime<Utc>>,
+) -> (FrontMatter, String) {
+    let mut lines = raw.lines();
     let mut yaml = String::new();
     let mut in_yaml = false;
 
-    // Extract YAML front matter delimited by `---` lines.
     for line in lines.by_ref() {
         let trimmed = line.trim();
         if trimmed == "---" {
@@ -75,8 +61,119 @@ pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
         }
     }
 
-    // Markdown content after front matter.
     let content = lines.collect::<Vec<_>>().join("\n") + "\n";
+
+    let fm = if yaml.trim().is_empty() {
+        FrontMatter {
+            title: title_hint.to_string(),
+            date: fallback_date,
+            author: None,
+            description: None,
+            feed: None,
+        }
+    } else {
+        match yaml_serde::from_str(&yaml) {
+            Ok(fm) => fm,
+            Err(e) => {
+                eprintln!(
+                    "mdbook-rss-feed: warning: failed to parse frontmatter for \
+                     '{title_hint}', falling back to defaults: {e}"
+                );
+                FrontMatter {
+                    title: title_hint.to_string(),
+                    date: fallback_date,
+                    author: None,
+                    description: None,
+                    feed: None,
+                }
+            }
+        }
+    };
+
+    (fm, content)
+}
+
+fn walk_book_items(items: &Value, out: &mut Vec<Article>) {
+    let Some(arr) = items.as_array() else { return };
+
+    for item in arr {
+        // Only Chapter variants carry content; Separator and PartTitle are skipped.
+        let Some(chapter) = item.get("Chapter") else {
+            continue;
+        };
+
+        let name = chapter
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or("untitled")
+            .to_string();
+
+        let content = chapter
+            .get("content")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+
+        // `path` is the output HTML path; `source_path` is the .md source.
+        // We prefer source_path (e.g. "changelog.md") for URL generation
+        // because `path` may sometimes be None for draft chapters.
+        let path = chapter
+            .get("source_path")
+            .and_then(Value::as_str)
+            .or_else(|| chapter.get("path").and_then(Value::as_str))
+            .unwrap_or("")
+            .to_string();
+
+        if path.is_empty() {
+            // Draft chapter with no source (skip).
+            continue;
+        }
+
+        let (fm, body) = parse_frontmatter(&content, &name, None);
+
+        out.push(Article {
+            fm,
+            content: body,
+            path,
+        });
+
+        // Recurse into nested chapters.
+        if let Some(sub) = chapter.get("sub_items") {
+            walk_book_items(sub, out);
+        }
+    }
+}
+
+/// Collect articles from the book JSON object mdBook passes to preprocessors.
+///
+/// This is the **preferred** collection strategy. The book JSON contains only
+/// chapters listed in `SUMMARY.md`, and all `{{#include}}` directives in
+/// chapter content have already been expanded by mdBook before this
+/// preprocessor is called.
+pub fn articles_from_book_json(book_json: &Value) -> Vec<Article> {
+    let mut articles = Vec::new();
+
+    // mdBook's Book serialises its chapters under "items".
+    if let Some(items) = book_json.get("items") {
+        walk_book_items(items, &mut articles);
+    }
+
+    // Sort newest → oldest; None dates fall last.
+    articles.sort_by(|a, b| b.fm.date.cmp(&a.fm.date));
+
+    articles
+}
+
+/// Parses a markdown file and returns an [`Article`].
+///
+/// # Errors
+/// Returns `Err` if `path` can't be read, or if it has no usable file stem
+/// (e.g. it's a directory or has no filename).
+pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
+    let text = fs::read_to_string(path).map_err(|source| FeedError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
 
     let fallback_date = path
         .metadata()
@@ -84,14 +181,12 @@ pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
         .and_then(|m| m.modified().ok())
         .map(systemtime_to_utc);
 
-    let fm = if yaml.trim().is_empty() {
-        fallback_frontmatter(path, &content, fallback_date)?
-    } else {
-        match yaml_serde::from_str(&yaml) {
-            Ok(fm) => fm,
-            Err(_) => fallback_frontmatter(path, &content, fallback_date)?,
-        }
-    };
+    let title_hint = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "untitled".to_string());
+
+    let (fm, content) = parse_frontmatter(&text, &title_hint, fallback_date);
 
     let rel_path = path.strip_prefix(root).unwrap_or(path);
     Ok(Article {

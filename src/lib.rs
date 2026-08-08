@@ -16,11 +16,13 @@ mod atom_feed;
 mod json_feed;
 
 // Re-exports
-pub use article::{collect_articles, parse_markdown_file, Article};
+pub use article::{articles_from_book_json, collect_articles, parse_markdown_file, Article};
 #[cfg(feature = "atom")]
 pub use atom_feed::rss_to_atom;
 pub use error::{FeedError, Result};
-pub use feed::{build_feed, BuildResult, FeedOptions, FeedPage};
+pub use feed::{
+    build_feed, build_feed_from_articles, BuildResult, DefaultBehavior, FeedOptions, FeedPage,
+};
 pub use frontmatter::FrontMatter;
 #[cfg(feature = "json-feed")]
 pub use json_feed::{rss_to_json_feed, JsonFeed, JsonFeedItem};
