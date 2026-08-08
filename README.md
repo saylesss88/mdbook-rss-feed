@@ -2,11 +2,16 @@
 
 An mdBook preprocessor that generates RSS, Atom, and JSON feeds with rich HTML
 previews, optional full-content entries, and pagination support. Drop it in
-`book.toml` and it just works, perfect for blogs, docs sites, or any mdBook
+`book.toml` and it just works. Perfect for blogs, docs sites, or any mdBook
 you want to publish a feed for.
 
 ## Features
 
+- Reads the already-processed book object from mdBook, so `{{#include}}`
+  directives are expanded in feed content, and only chapters listed in
+  `SUMMARY.md` appear in the feed
+- Per-chapter feed visibility control via `feed: include` / `feed: exclude`
+  frontmatter, with a book-level `default-behavior` option for opt-in mode
 - Hybrid HTML preview built from the first paragraphs of each chapter, with
   fallback to a frontmatter `description` when the body is short or missing
 - Optional full-content entries instead of previews
@@ -59,6 +64,7 @@ renderers = ["html"]
 # json-feed = true      # also write feed.json (needs the `json-feed` feature)
 # paginated = true       # split into rss.xml, rss2.xml, ... once max-items is exceeded
 # max-items = 4
+# default-behavior = "exclude-all"   # opt-in mode: only include chapters marked feed: include
 
 [output.html]
 site-url = "https://your-user.github.io/"
@@ -86,11 +92,9 @@ Enable with `paginated = true` and `max-items = N` in `[preprocessor.rss-feed]`.
 - `rss.xml` holds the newest `N` items; older items spill into `rss2.xml`,
   `rss3.xml`, etc.
 - If `atom`/`json-feed` are enabled, their paginated pages mirror the RSS
-  pages (`atom2.xml`, `feed2.json`, …). Atom pages include `rel="next"`/
-  `rel="prev"` links; JSON Feed pages include `next_url`, per the JSON Feed
-  1.1 spec.
+  pages (`atom2.xml`, `feed2.json`, …).
 
-Pagination relies on accurate `date:` frontmatter — without it, ordering
+Pagination relies on accurate `date:` frontmatter. Without it, ordering
 falls back to file timestamps, which may not match publish order.
 
 To turn pagination back off: set `paginated = false` and `max-items = 0`,
@@ -101,9 +105,8 @@ and run `mdbook clean` before rebuilding.
 
 ## Frontmatter
 
-Frontmatter is optional. Without it, entries fall back to the chapter title
-and a date derived from the file's mtime. With it, the same block drives all
-three feed formats:
+Frontmatter is optional. Without it, entries fall back to the chapter name
+from `SUMMARY.md`. With it, the same block drives all three feed formats:
 
 ```yaml
 title: Debugging NixOS modules
@@ -119,6 +122,60 @@ description: This chapter covers debugging NixOS modules, focusing on tracing
   [mdbook-content-loader](https://crates.io/crates/mdbook-content-loader) can
   enforce typed, validated frontmatter so dates are always present — this
   makes pagination ordering more reliable, but isn't required.
+
+### Feed visibility
+
+Control which chapters appear in the feed with the `feed` frontmatter key:
+
+```yaml
+---
+title: Changelog
+date: 2026-08-01
+feed: include
+---
+```
+
+```yaml
+---
+title: Internal Notes
+feed: exclude
+---
+```
+
+The book-level `default-behavior` setting determines what happens when `feed:`
+is absent:
+
+```toml
+[preprocessor.rss-feed]
+default-behavior = "include-all"  # default: include every chapter unless feed: exclude
+# default-behavior = "exclude-all" # opt-in: exclude every chapter unless feed: include
+```
+
+| `default-behavior` | No `feed:` key | `feed: include` | `feed: exclude` |
+|---|---|---|---|
+| `include-all` (default) | included | included | excluded |
+| `exclude-all` | excluded | included | excluded |
+
+Per-chapter `feed:` always wins over the book-level default.
+
+**Example: changelog-only feed**
+
+```toml
+# book.toml
+[preprocessor.rss-feed]
+default-behavior = "exclude-all"
+```
+
+```yaml
+# changelog.md
+---
+title: Changelog
+date: 2026-08-01
+feed: include
+---
+```
+
+Only chapters explicitly marked `feed: include` will appear in the feed.
 
 ### How the preview is built
 
