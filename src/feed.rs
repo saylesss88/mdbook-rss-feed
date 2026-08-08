@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
 
-use crate::article::{Article, collect_articles};
+use crate::article::{collect_articles, Article};
 use crate::error::Result;
 use crate::frontmatter::FeedVisibility;
 use crate::preview::render_preview;
@@ -64,6 +64,7 @@ pub struct FeedOptions<'a> {
     pub max_items: usize,
     pub paginated: bool,
     pub default_behavior: DefaultBehavior,
+    pub strict: bool,
 }
 
 /// Return `true` if this article should appear in the feed given `default_behavior`.
@@ -185,6 +186,6 @@ pub fn build_feed_from_articles(articles: Vec<Article>, opts: &FeedOptions<'_>) 
 /// # Errors
 /// Returns `Err` if `src_dir` can't be accessed or walked.
 pub fn build_feed(src_dir: &Path, opts: &FeedOptions<'_>) -> Result<BuildResult> {
-    let articles = collect_articles(src_dir)?;
+    let articles = collect_articles(src_dir, opts.strict)?;
     Ok(build_feed_from_articles(articles, opts))
 }

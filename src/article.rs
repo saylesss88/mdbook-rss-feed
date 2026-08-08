@@ -7,7 +7,7 @@ use serde_json::Value;
 use walkdir::WalkDir;
 
 use crate::error::{FeedError, Result};
-use crate::frontmatter::FrontMatter;
+use crate::frontmatter::{parse_frontmatter, FrontMatter};
 
 /// Convert file modification time to UTC.
 fn systemtime_to_utc(st: SystemTime) -> DateTime<Utc> {
@@ -27,73 +27,7 @@ pub struct Article {
     pub path: String,
 }
 
-/// Parse frontmatter from raw Markdown text.
-///
-/// Returns `(frontmatter, body)` where `body` is the content after the
-/// closing `---` delimiter. If no valid frontmatter block is found, a
-/// minimal `FrontMatter` is synthesised from `title_hint` and
-/// `fallback_date`.
-///
-/// A warning is printed to stderr when YAML is present but fails to parse,
-/// so users can diagnose broken frontmatter instead of silently getting
-/// wrong metadata.
-pub fn parse_frontmatter(
-    raw: &str,
-    title_hint: &str,
-    fallback_date: Option<DateTime<Utc>>,
-) -> (FrontMatter, String) {
-    let mut lines = raw.lines();
-    let mut yaml = String::new();
-    let mut in_yaml = false;
-
-    for line in lines.by_ref() {
-        let trimmed = line.trim();
-        if trimmed == "---" {
-            if !in_yaml {
-                in_yaml = true;
-                continue;
-            }
-            break;
-        }
-        if in_yaml {
-            yaml.push_str(line);
-            yaml.push('\n');
-        }
-    }
-
-    let content = lines.collect::<Vec<_>>().join("\n") + "\n";
-
-    let fm = if yaml.trim().is_empty() {
-        FrontMatter {
-            title: title_hint.to_string(),
-            date: fallback_date,
-            author: None,
-            description: None,
-            feed: None,
-        }
-    } else {
-        match yaml_serde::from_str(&yaml) {
-            Ok(fm) => fm,
-            Err(e) => {
-                eprintln!(
-                    "mdbook-rss-feed: warning: failed to parse frontmatter for \
-                     '{title_hint}', falling back to defaults: {e}"
-                );
-                FrontMatter {
-                    title: title_hint.to_string(),
-                    date: fallback_date,
-                    author: None,
-                    description: None,
-                    feed: None,
-                }
-            }
-        }
-    };
-
-    (fm, content)
-}
-
-fn walk_book_items(items: &Value, out: &mut Vec<Article>) {
+fn walk_book_items(items: &Value, out: &mut Vec<Article>, strict: bool) {
     let Some(arr) = items.as_array() else { return };
 
     for item in arr {
@@ -129,7 +63,7 @@ fn walk_book_items(items: &Value, out: &mut Vec<Article>) {
             continue;
         }
 
-        let (fm, body) = parse_frontmatter(&content, &name, None);
+        let (fm, body) = parse_frontmatter(&content, &name, None, strict);
 
         out.push(Article {
             fm,
@@ -139,7 +73,7 @@ fn walk_book_items(items: &Value, out: &mut Vec<Article>) {
 
         // Recurse into nested chapters.
         if let Some(sub) = chapter.get("sub_items") {
-            walk_book_items(sub, out);
+            walk_book_items(sub, out, strict);
         }
     }
 }
@@ -151,12 +85,12 @@ fn walk_book_items(items: &Value, out: &mut Vec<Article>) {
 /// chapter content have already been expanded by mdBook before this
 /// preprocessor is called.
 #[must_use]
-pub fn articles_from_book_json(book_json: &Value) -> Vec<Article> {
+pub fn articles_from_book_json(book_json: &Value, strict: bool) -> Vec<Article> {
     let mut articles = Vec::new();
 
     // mdBook's Book serialises its chapters under "items".
     if let Some(items) = book_json.get("items") {
-        walk_book_items(items, &mut articles);
+        walk_book_items(items, &mut articles, strict);
     }
 
     // Sort newest → oldest; None dates fall last.
@@ -170,7 +104,7 @@ pub fn articles_from_book_json(book_json: &Value) -> Vec<Article> {
 /// # Errors
 /// Returns `Err` if `path` can't be read, or if it has no usable file stem
 /// (e.g. it's a directory or has no filename).
-pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
+pub fn parse_markdown_file(root: &Path, path: &Path, strict: bool) -> Result<Article> {
     let text = fs::read_to_string(path).map_err(|source| FeedError::Io {
         path: path.to_path_buf(),
         source,
@@ -187,7 +121,7 @@ pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
         |s| s.to_string_lossy().into_owned(),
     );
 
-    let (fm, content) = parse_frontmatter(&text, &title_hint, fallback_date);
+    let (fm, content) = parse_frontmatter(&text, &title_hint, fallback_date, strict);
 
     let rel_path = path.strip_prefix(root).unwrap_or(path);
     Ok(Article {
@@ -207,7 +141,7 @@ pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
 ///
 /// # Errors
 /// Returns `Err` if `src_dir` doesn't exist or can't be walked.
-pub fn collect_articles(src_dir: &Path) -> Result<Vec<Article>> {
+pub fn collect_articles(src_dir: &Path, strict: bool) -> Result<Vec<Article>> {
     let mut articles = Vec::new();
 
     for entry in WalkDir::new(src_dir) {
@@ -236,7 +170,7 @@ pub fn collect_articles(src_dir: &Path) -> Result<Vec<Article>> {
             continue;
         }
 
-        if let Ok(article) = parse_markdown_file(src_dir, path) {
+        if let Ok(article) = parse_markdown_file(src_dir, path, strict) {
             articles.push(article);
         }
     }

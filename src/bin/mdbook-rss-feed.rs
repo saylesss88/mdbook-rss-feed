@@ -39,6 +39,7 @@ struct FeedConfig {
     json_enabled: bool,
     #[cfg_attr(not(feature = "atom"), allow(dead_code))]
     atom_enabled: bool,
+    strict: bool,
 }
 
 impl FeedConfig {
@@ -92,6 +93,10 @@ impl FeedConfig {
                 .pointer("/config/preprocessor/rss-feed/atom")
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
+            strict: context
+                .pointer("/config/preprocessor/rss-feed/strict")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
         }
     }
     fn feed_options(&self) -> FeedOptions<'_> {
@@ -103,6 +108,7 @@ impl FeedConfig {
             max_items: self.max_items,
             paginated: self.paginated,
             default_behavior: self.default_behavior.clone(),
+            strict: self.strict,
         }
     }
 }
@@ -238,7 +244,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = FeedConfig::from_json(context);
 
     // 4. BUILD FEED
-    let articles = articles_from_book_json(book);
+    let articles = articles_from_book_json(book, config.strict);
 
     eprintln!(
         "mdbook-rss-feed: collected {} chapter(s) from book (default-behavior: {:?})",
