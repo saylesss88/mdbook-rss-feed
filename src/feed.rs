@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
 
-use crate::article::{collect_articles, Article};
+use crate::article::{Article, collect_articles};
 use crate::error::Result;
 use crate::frontmatter::FeedVisibility;
 use crate::preview::render_preview;

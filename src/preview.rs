@@ -4,7 +4,7 @@
 //! `description` override) into a short HTML preview suitable for an RSS
 //! `<description>`.
 
-use pulldown_cmark::{html, Options, Parser};
+use pulldown_cmark::{Options, Parser, html};
 
 /// Minimum body length (in chars) before we prefer it over the frontmatter
 /// `description` as the preview source.
