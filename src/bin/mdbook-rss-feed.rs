@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use serde_json::Value;
 
 use mdbook_rss_feed::{
-    DefaultBehavior, FeedOptions, articles_from_book_json, build_feed_from_articles,
+    articles_from_book_json, build_feed_from_articles, DefaultBehavior, FeedOptions,
 };
 
 fn handle_mdbook_hooks(args: &[String]) -> bool {
@@ -131,14 +131,22 @@ fn write_json_pages(
     if !config.json_enabled {
         return Ok(());
     }
+    let base = config.site_url.trim_end_matches('/');
+    let total = pages.len();
     for (page_idx, page) in pages.iter().enumerate() {
         let suffix = if page_idx == 0 {
             String::new()
         } else {
             (page_idx + 1).to_string()
         };
-        let self_url = format!("{}/feed{}.json", config.site_url, suffix);
-        let json_feed = rss_to_json_feed(&page.channel, Some(&self_url), None);
+        let self_url = format!("{base}/feed{suffix}.json");
+
+        let next_url = if page_idx + 1 < total {
+            Some(format!("{base}/feed{}.json", page_idx + 2))
+        } else {
+            None
+        };
+        let json_feed = rss_to_json_feed(&page.channel, Some(&self_url), next_url.as_deref());
         let json_path = config.src_dir.join(if page_idx == 0 {
             "feed.json".to_string()
         } else {
@@ -164,8 +172,37 @@ fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) ->
     if !config.atom_enabled {
         return Ok(());
     }
+    let base = config.site_url.trim_end_matches('/');
+    let total = pages.len();
     for (page_idx, page) in pages.iter().enumerate() {
-        let atom_feed = rss_to_atom(&page.channel);
+        let suffix = if page_idx == 0 {
+            String::new()
+        } else {
+            (page_idx + 1).to_string()
+        };
+        let self_url = format!("{base}/atom{suffix}.xml");
+        // next points to older page, prev points to newer page.
+        let next_url = if page_idx + 1 < total {
+            Some(format!("{base}/atom{}.xml", page_idx + 2))
+        } else {
+            None
+        };
+        let prev_url = if page_idx > 0 {
+            let prev_suffix = if page_idx == 1 {
+                String::new()
+            } else {
+                page_idx.to_string()
+            };
+            Some(format!("{base}/atom{prev_suffix}.xml"))
+        } else {
+            None
+        };
+        let atom_feed = rss_to_atom(
+            &page.channel,
+            Some(&self_url),
+            next_url.as_deref(),
+            prev_url.as_deref(),
+        );
         let atom_path = config.src_dir.join(if page_idx == 0 {
             "atom.xml".to_string()
         } else {
@@ -202,18 +239,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 4. BUILD FEED
     let articles = articles_from_book_json(book);
+
     eprintln!(
         "mdbook-rss-feed: collected {} chapter(s) from book (default-behavior: {:?})",
         articles.len(),
         config.default_behavior,
     );
+
+    // 5. BUILD FEED
     let result = build_feed_from_articles(articles, &config.feed_options());
 
     write_rss_pages(&config, &result.pages)?;
     write_json_pages(&config, &result.pages)?;
     write_atom_pages(&config, &result.pages)?;
 
-    // FINAL ECHO TO MDBOOK
+    // 6. FINAL ECHO TO MDBOOK
     io::stderr().flush()?;
     println!("{}", serde_json::to_string(book)?);
     Ok(())
