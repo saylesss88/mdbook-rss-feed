@@ -61,8 +61,16 @@ pub fn rss_to_atom(
 ) -> AtomFeed {
     let entries: Vec<AtomEntry> = channel.items().iter().map(build_entry).collect();
 
+    // Set feed-level updated to the most recent entry date.
+    let latest = entries
+        .iter()
+        .map(|e| *e.updated())
+        .max()
+        .unwrap_or_else(|| DateTime::parse_from_rfc3339("1970-01-01T00:00:00Z").unwrap());
+
     let mut feed = AtomFeed::default();
     feed.set_title(channel.title().to_string());
+    feed.set_updated(latest);
     feed.set_entries(entries);
 
     let home = channel.link();
