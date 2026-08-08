@@ -178,6 +178,42 @@ feed: include
 
 Only chapters explicitly marked `feed: include` will appear in the feed.
 
+### Strict mode
+
+By default, frontmatter parse errors print a warning to stderr and the build
+continues with fallback values. Enable strict mode to fail the build immediately
+instead:
+
+```toml
+[preprocessor.rss-feed]
+strict = true
+```
+
+With `strict = true`, any chapter whose frontmatter cannot be parsed will cause
+mdbook build to exit with a non-zero code. This is useful in CI pipelines where
+a silent fallback would produce a wrong feed without any visible failure.
+
+Without strict mode, check stderr output during mdbook build for lines starting
+with `mdbook-rss-feed: warning:` to catch parse issues manually.
+
+And the title fallback behavior is worth documenting in the same area. Add this
+to the existing Frontmatter section where it describes the `title` field:
+
+`title` is optional. If omitted, the preprocessor falls back to the first
+`# Heading` in the chapter body, then to the chapter name from `SUMMARY.md`.
+This means a file like:
+
+```yaml
+---
+date: 2026-08-01
+feed: include
+---
+# My Chapter Title
+```
+
+will use `My Chapter Title` as the feed item title without requiring a duplicate
+`title:` field.
+
 ### How the preview is built
 
 By default, the preview comes from the first 2–3 `<p>` blocks of the
