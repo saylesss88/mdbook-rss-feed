@@ -1,6 +1,7 @@
 //! Building RSS 2.0 feed pages from collected articles.
 
 use std::path::Path;
+use std::str::FromStr;
 
 use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
 
@@ -28,7 +29,7 @@ pub struct BuildResult {
     pub pages: Vec<FeedPage>,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum DefaultBehavior {
     /// Include every chapter unless explicitly marked `feed: exclude`.
     /// This is the default when `default-behavior` is not set.
@@ -38,12 +39,13 @@ pub enum DefaultBehavior {
     ExcludeAll,
 }
 
-impl DefaultBehavior {
+impl FromStr for DefaultBehavior {
+    type Err = std::convert::Infallible;
     /// Parse from the string value in `book.toml`.
-    pub fn from_str(s: &str) -> Self {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.trim() {
-            "exclude-all" => Self::ExcludeAll,
-            _ => Self::IncludeAll,
+            "exclude-all" => Ok(Self::ExcludeAll),
+            _ => Ok(Self::IncludeAll),
         }
     }
 }
@@ -164,6 +166,7 @@ fn articles_to_items(articles: Vec<Article>, opts: &FeedOptions<'_>, base_url: &
         .collect()
 }
 
+#[must_use]
 pub fn build_feed_from_articles(articles: Vec<Article>, opts: &FeedOptions<'_>) -> BuildResult {
     let base_url = opts.site_url.trim_end_matches('/');
     let items = articles_to_items(articles, opts, base_url);

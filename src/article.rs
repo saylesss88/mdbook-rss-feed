@@ -150,6 +150,7 @@ fn walk_book_items(items: &Value, out: &mut Vec<Article>) {
 /// chapters listed in `SUMMARY.md`, and all `{{#include}}` directives in
 /// chapter content have already been expanded by mdBook before this
 /// preprocessor is called.
+#[must_use]
 pub fn articles_from_book_json(book_json: &Value) -> Vec<Article> {
     let mut articles = Vec::new();
 
@@ -159,7 +160,7 @@ pub fn articles_from_book_json(book_json: &Value) -> Vec<Article> {
     }
 
     // Sort newest → oldest; None dates fall last.
-    articles.sort_by(|a, b| b.fm.date.cmp(&a.fm.date));
+    articles.sort_by_key(|b| std::cmp::Reverse(b.fm.date));
 
     articles
 }
@@ -181,10 +182,10 @@ pub fn parse_markdown_file(root: &Path, path: &Path) -> Result<Article> {
         .and_then(|m| m.modified().ok())
         .map(systemtime_to_utc);
 
-    let title_hint = path
-        .file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "untitled".to_string());
+    let title_hint = path.file_stem().map_or_else(
+        || "untitled".to_string(),
+        |s| s.to_string_lossy().into_owned(),
+    );
 
     let (fm, content) = parse_frontmatter(&text, &title_hint, fallback_date);
 

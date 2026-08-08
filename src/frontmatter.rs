@@ -40,7 +40,7 @@ where
 ///
 /// When absent, the chapter follows the book-level `default-behavior` setting
 /// (`include-all` by default).
-#[derive(Debug, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum FeedVisibility {
     Include,

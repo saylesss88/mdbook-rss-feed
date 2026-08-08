@@ -51,7 +51,7 @@ impl FeedConfig {
         let default_behavior = context
             .pointer("/config/preprocessor/rss-feed/default-behavior")
             .and_then(Value::as_str)
-            .map(DefaultBehavior::from_str)
+            .and_then(|s| s.parse::<DefaultBehavior>().ok())
             .unwrap_or_default();
 
         Self {
