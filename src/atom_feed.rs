@@ -53,25 +53,61 @@ fn build_entry(item: &rss::Item) -> AtomEntry {
 /// This is a best-effort mapping. It copies titles, links, descriptions (as
 /// HTML content), and dates where available.
 #[must_use]
-pub fn rss_to_atom(channel: &Channel) -> AtomFeed {
+pub fn rss_to_atom(
+    channel: &Channel,
+    self_url: Option<&str>,
+    next_url: Option<&str>,
+    prev_url: Option<&str>,
+) -> AtomFeed {
     let entries: Vec<AtomEntry> = channel.items().iter().map(build_entry).collect();
 
     let mut feed = AtomFeed::default();
     feed.set_title(channel.title().to_string());
     feed.set_entries(entries);
 
-    let link = channel.link();
-    if link.is_empty() {
-        // Fallback id if link is somehow empty.
-        feed.set_id(channel.title().to_string());
-    } else {
-        feed.set_links(vec![AtomLink {
-            href: link.to_string(),
+    let home = channel.link();
+
+    // Build the links vec: self, then optional next/prev, then the home link.
+    let mut links: Vec<AtomLink> = Vec::new();
+
+    if let Some(slf) = self_url {
+        links.push(AtomLink {
+            href: slf.to_string(),
+            rel: "self".to_string(),
             ..Default::default()
-        }]);
-        // Use the public feed URL as a stable Atom feed id.
-        feed.set_id(link.to_string());
+        });
+        feed.set_id(slf.to_string());
+    } else if !home.is_empty() {
+        feed.set_id(home.to_string());
+    } else {
+        feed.set_id(channel.title().to_string());
     }
+
+    if let Some(next) = next_url {
+        links.push(AtomLink {
+            href: next.to_string(),
+            rel: "next".to_string(),
+            ..Default::default()
+        });
+    }
+
+    if let Some(prev) = prev_url {
+        links.push(AtomLink {
+            href: prev.to_string(),
+            rel: "prev".to_string(),
+            ..Default::default()
+        });
+    }
+
+    if !home.is_empty() {
+        links.push(AtomLink {
+            href: home.to_string(),
+            rel: "alternate".to_string(),
+            ..Default::default()
+        });
+    }
+
+    feed.set_links(links);
 
     let desc = channel.description();
     if !desc.is_empty() {
