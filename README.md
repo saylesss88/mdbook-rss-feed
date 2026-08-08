@@ -59,6 +59,7 @@ src = "src"
 
 [preprocessor.rss-feed]
 renderers = ["html"]
+# before = ["frontmatter-strip"] # If you use mdbook-frontmatter-strip
 # full-preview = true   # use the whole chapter as the preview, not an excerpt
 # atom = true           # also write atom.xml (needs the `atom` feature)
 # json-feed = true      # also write feed.json (needs the `json-feed` feature)
