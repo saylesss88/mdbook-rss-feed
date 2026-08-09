@@ -8,6 +8,23 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- **Test suite**: `frontmatter`, `article`, and `feed` modules now have inline
+  `#[cfg(test)]` unit tests (78 tests total, complementing the 6 existing tests
+  in `preview`). Coverage includes:
+  - frontmatter parsing edge cases (`first_h1`, `resolve_title`,
+    `parse_frontmatter`),
+  - book JSON collection (`articles_from_book_json`, sub-item recursion,
+    draft-chapter skipping, newest-first sort),
+  - filesystem collection (`collect_articles`, `parse_markdown_file`),
+  - feed filtering (`article_is_included`, `DefaultBehavior`),
+  - link generation (`article_link`, `rss_filename`),
+  - RSS channel metadata, RFC 2822 zero-padding, and full pagination logic (page
+    splits, filenames, `atom:link` `rel` values).
+
+- A `tempfile` dev-dependency is added for filesystem-based tests.
+
 ## [1.8.1] - 2026-08-09
 
 ### Fixed
@@ -16,6 +33,7 @@ and this project adheres to
   (`---`) in the middle of a document body no longer trigger frontmatter
   parsing. Frontmatter is now only detected when `---` appears on the very first
   line of the file, matching standard frontmatter convention.
+
 - [Bug](https://github.com/saylesss88/mdbook-rss-feed/issues/7):`date:` values
   that are present but unparseable (e.g. `date: invalid`) now produce a proper
   parse error rather than silently falling back to `None`. This means
@@ -25,7 +43,7 @@ and this project adheres to
 
 ### Added
 
-- RSS pagination links: paginated RSS feeds now include `atom:link` elements
+- **RSS pagination links**: paginated RSS feeds now include `atom:link` elements
   with `rel="self"`, `rel="next"`, and `rel="prev"` using the Atom namespace,
   allowing feed readers to discover adjacent pages. The `xmlns:atom` namespace
   is declared on the `<rss>` element per the convention. Single-page feeds get a
@@ -42,18 +60,18 @@ and this project adheres to
 
 ### Added
 
-- Strict mode: via `strict = true` in `[preprocessor.rss-feed]`, causing the
+- **Strict mode**: via `strict = true` in `[preprocessor.rss-feed]`, causing the
   book build to fail on any frontmatter parse error, instead of warning and
   continuing. Useful for CI pipelines where silent fallbacks would produce a
   wrong feed without any visible failure.
 
-- Atom pagination links: paginated Atom feeds now include `rel="self"`,
+- **Atom pagination links**: paginated Atom feeds now include `rel="self"`,
   `rel="next"`, and `rel="prev"` link elements per the Atom spec.
 
-- JSON Feed: `next_url`: paginated JSON feeds now include `next_url` pointing to
-  the next (older) page, per JSON Feed 1.1 spec.
+- **JSON Feed: `next_url`**: paginated JSON feeds now include `next_url`
+  pointing to the next (older) page, per JSON Feed 1.1 spec.
 
-- Title fallback to `#Heading`: `title` is now optional frontmatter. The
+- **Title fallback to `#Heading`**: `title` is now optional frontmatter. The
   resolution order is:
   1. `title:` in YAML frontmatter
   2. First `# Heading` in chapter body
@@ -81,7 +99,7 @@ and this project adheres to
 
 - Support for `{{include file.rs}}` when processing book content.
 
-- Feed visibility filtering: control which chapters appear in the feed with
+- **Feed visibility filtering**: control which chapters appear in the feed with
   `feed: include` / `feed: exclude` in frontmatter, and a book-level
   `default-behavior = "exclude-all"` config option for opt-in mode.
 
@@ -101,11 +119,11 @@ and this project adheres to
 
 ### Changed
 
-- Refactor(lib): break down `lib.rs` into sub-modules
+- **Refactor(lib)**: break down `lib.rs` into sub-modules
 
 ### Added
 
-- Feature gates for `atom` and `json-feed`, install with:
+- **Feature gates**: for `atom` and `json-feed`, install with:
   - `cargo install mdbook-rss-feed --features atom,json-feed`
 
 ### Fixed
