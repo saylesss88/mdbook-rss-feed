@@ -20,6 +20,9 @@ you want to publish a feed for.
 - Reads `date:` from frontmatter (RFC3339 or `YYYY-MM-DD`), falling back to
   file modification time
 - Works with or without frontmatter; zero-config by default
+- Strict mode with `strict = true` in `[preprocessor.rss-feed]` to cause the
+  book build to fail on any frontmatter parse error, instead of warning and
+  continuing. Useful for CI pipelines.
 
 ## Installation
 
@@ -92,11 +95,14 @@ Enable with `paginated = true` and `max-items = N` in `[preprocessor.rss-feed]`.
   file modification time.
 - `rss.xml` holds the newest `N` items; older items spill into `rss2.xml`,
   `rss3.xml`, etc.
-- If `atom`/`json-feed` are enabled, their paginated pages mirror the RSS
-  pages (`atom2.xml`, `feed2.json`, …).
+- If `atom`/`json-feed` are enabled, their paginated pages mirror the RSS pages
+  (`atom2.xml`, `feed2.json`, …). Atom pages include `rel="next"`/ `rel="prev"`
+  links; JSON Feed pages include `next_url`, per the JSON Feed 1.1 spec.
 
-Pagination relies on accurate `date:` frontmatter. Without it, ordering
-falls back to file timestamps, which may not match publish order.
+Pagination relies on accurate `date:` frontmatter. Chapters without a `date:`
+field sort last in the feed rather than by file modification time. For reliable
+chronological ordering, add date: to every chapter. Use `strict = true` to catch
+missing or malformed dates at build time.
 
 To turn pagination back off: set `paginated = false` and `max-items = 0`,
 delete any `rss2.xml`, `atom2.xml`, `feed2.json` (etc.) files from `src/`,
@@ -121,8 +127,8 @@ description: This chapter covers debugging NixOS modules, focusing on tracing
   chapter for reliable chronological order.
 - A loader like
   [mdbook-content-loader](https://crates.io/crates/mdbook-content-loader) can
-  enforce typed, validated frontmatter so dates are always present — this
-  makes pagination ordering more reliable, but isn't required.
+  enforce typed, validated frontmatter so dates are always present, this makes
+  pagination ordering more reliable, but isn't required.
 
 ### Feed visibility
 
@@ -178,7 +184,7 @@ feed: include
 
 Only chapters explicitly marked `feed: include` will appear in the feed.
 
-### Strict mode
+### Strict Mode
 
 By default, frontmatter parse errors print a warning to stderr and the build
 continues with fallback values. Enable strict mode to fail the build immediately
