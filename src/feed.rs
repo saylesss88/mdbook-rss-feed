@@ -253,3 +253,375 @@ pub fn build_feed(src_dir: &Path, opts: &FeedOptions<'_>) -> Result<BuildResult>
     let articles = collect_articles(src_dir, opts.strict)?;
     Ok(build_feed_from_articles(articles, opts))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::article::Article;
+    use crate::frontmatter::{FeedVisibility, FrontMatter};
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    fn make_article(
+        title: &str,
+        path: &str,
+        date: Option<&str>,
+        feed: Option<FeedVisibility>,
+    ) -> Article {
+        let date = date.and_then(|d| {
+            chrono::DateTime::parse_from_rfc3339(d)
+                .ok()
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+        });
+        Article {
+            fm: FrontMatter {
+                title: title.to_string(),
+                date,
+                author: None,
+                description: None,
+                feed,
+            },
+            content: format!("# {title}\n\nSome content for {title}."),
+            path: path.to_string(),
+        }
+    }
+
+    fn default_opts<'a>(site_url: &'a str) -> FeedOptions<'a> {
+        FeedOptions {
+            title: "Test Blog",
+            site_url,
+            description: "A test blog.",
+            full_preview: false,
+            max_items: 10,
+            paginated: false,
+            default_behavior: DefaultBehavior::IncludeAll,
+            strict: false,
+        }
+    }
+
+    // ── DefaultBehavior ───────────────────────────────────────────────────────
+
+    #[test]
+    fn default_behavior_parses_exclude_all() {
+        let b: DefaultBehavior = "exclude-all".parse().unwrap();
+        assert_eq!(b, DefaultBehavior::ExcludeAll);
+    }
+
+    #[test]
+    fn default_behavior_unknown_string_is_include_all() {
+        let b: DefaultBehavior = "whatever".parse().unwrap();
+        assert_eq!(b, DefaultBehavior::IncludeAll);
+    }
+
+    #[test]
+    fn default_behavior_empty_string_is_include_all() {
+        let b: DefaultBehavior = "".parse().unwrap();
+        assert_eq!(b, DefaultBehavior::IncludeAll);
+    }
+
+    #[test]
+    fn default_behavior_default_is_include_all() {
+        assert_eq!(DefaultBehavior::default(), DefaultBehavior::IncludeAll);
+    }
+
+    // ── article_link ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn article_link_converts_md_to_html() {
+        let link = article_link("https://example.com", "posts/hello.md");
+        assert_eq!(link, "https://example.com/posts/hello.html");
+    }
+
+    #[test]
+    fn article_link_readme_becomes_index() {
+        let link = article_link("https://example.com", "intro/README.md");
+        assert_eq!(link, "https://example.com/intro/index.html");
+    }
+
+    #[test]
+    fn article_link_normalizes_backslashes() {
+        let link = article_link("https://example.com", r"posts\windows.md");
+        assert_eq!(link, "https://example.com/posts/windows.html");
+    }
+
+    // ── rss_filename ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn rss_filename_page_zero_is_rss_xml() {
+        assert_eq!(rss_filename(0), "rss.xml");
+    }
+
+    #[test]
+    fn rss_filename_subsequent_pages_are_numbered() {
+        assert_eq!(rss_filename(1), "rss2.xml");
+        assert_eq!(rss_filename(2), "rss3.xml");
+        assert_eq!(rss_filename(9), "rss10.xml");
+    }
+
+    // ── article_is_included ───────────────────────────────────────────────────
+
+    #[test]
+    fn include_all_includes_article_with_no_override() {
+        let a = make_article("Test", "test.md", None, None);
+        assert!(article_is_included(&a, &DefaultBehavior::IncludeAll));
+    }
+
+    #[test]
+    fn include_all_excludes_article_with_feed_exclude() {
+        let a = make_article("Test", "test.md", None, Some(FeedVisibility::Exclude));
+        assert!(!article_is_included(&a, &DefaultBehavior::IncludeAll));
+    }
+
+    #[test]
+    fn exclude_all_excludes_article_with_no_override() {
+        let a = make_article("Test", "test.md", None, None);
+        assert!(!article_is_included(&a, &DefaultBehavior::ExcludeAll));
+    }
+
+    #[test]
+    fn exclude_all_includes_article_with_feed_include() {
+        let a = make_article("Test", "test.md", None, Some(FeedVisibility::Include));
+        assert!(article_is_included(&a, &DefaultBehavior::ExcludeAll));
+    }
+
+    #[test]
+    fn explicit_include_overrides_include_all() {
+        let a = make_article("Test", "test.md", None, Some(FeedVisibility::Include));
+        assert!(article_is_included(&a, &DefaultBehavior::IncludeAll));
+    }
+
+    // ── build_feed_from_articles ──────────────────────────────────────────────
+
+    #[test]
+    fn build_feed_from_articles_basic() {
+        let articles = vec![
+            make_article("Post A", "a.md", Some("2024-06-01T00:00:00Z"), None),
+            make_article("Post B", "b.md", Some("2024-05-01T00:00:00Z"), None),
+        ];
+        let opts = default_opts("https://example.com");
+        let result = build_feed_from_articles(articles, &opts);
+        assert_eq!(result.pages.len(), 1);
+        let channel = &result.pages[0].channel;
+        assert_eq!(channel.items().len(), 2);
+        assert_eq!(result.pages[0].filename, "rss.xml");
+    }
+
+    #[test]
+    fn build_feed_from_articles_channel_metadata() {
+        let articles = vec![make_article("Post", "post.md", None, None)];
+        let opts = default_opts("https://myblog.com");
+        let result = build_feed_from_articles(articles, &opts);
+        let channel = &result.pages[0].channel;
+        assert_eq!(channel.title(), "Test Blog");
+        assert_eq!(channel.description(), "A test blog.");
+        assert!(channel.link().contains("myblog.com"));
+    }
+
+    #[test]
+    fn build_feed_from_articles_item_link_is_html() {
+        let articles = vec![make_article("Post", "posts/my-post.md", None, None)];
+        let opts = default_opts("https://example.com");
+        let result = build_feed_from_articles(articles, &opts);
+        let item = &result.pages[0].channel.items()[0];
+        let link = item.link().unwrap();
+        assert!(link.ends_with(".html"), "link should end in .html: {link}");
+        assert!(link.starts_with("https://example.com"));
+    }
+
+    #[test]
+    fn build_feed_from_articles_pub_date_zero_padded() {
+        // Day 5 must be "05", not "5" — RFC 2822 requires zero-padding.
+        let articles = vec![make_article(
+            "Post",
+            "post.md",
+            Some("2024-01-05T00:00:00Z"),
+            None,
+        )];
+        let opts = default_opts("https://example.com");
+        let result = build_feed_from_articles(articles, &opts);
+        let item = &result.pages[0].channel.items()[0];
+        let pub_date = item.pub_date().unwrap();
+        // The day portion should be "05", never "5".
+        assert!(
+            pub_date.contains(" 05 "),
+            "expected zero-padded day in: {pub_date}"
+        );
+    }
+
+    #[test]
+    fn build_feed_from_articles_filters_excluded_items() {
+        let articles = vec![
+            make_article("Included", "inc.md", None, None),
+            make_article("Excluded", "exc.md", None, Some(FeedVisibility::Exclude)),
+        ];
+        let opts = default_opts("https://example.com");
+        let result = build_feed_from_articles(articles, &opts);
+        let items = result.pages[0].channel.items();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].title().unwrap(), "Included");
+    }
+
+    #[test]
+    fn build_feed_from_articles_exclude_all_only_shows_explicit_includes() {
+        let articles = vec![
+            make_article("A", "a.md", None, None),
+            make_article("B", "b.md", None, Some(FeedVisibility::Include)),
+            make_article("C", "c.md", None, None),
+        ];
+        let mut opts = default_opts("https://example.com");
+        opts.default_behavior = DefaultBehavior::ExcludeAll;
+        let result = build_feed_from_articles(articles, &opts);
+        let items = result.pages[0].channel.items();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].title().unwrap(), "B");
+    }
+
+    #[test]
+    fn build_feed_from_articles_trailing_slash_on_site_url_is_stripped() {
+        let articles = vec![make_article("Post", "post.md", None, None)];
+        let mut opts = default_opts("https://example.com/");
+        opts.max_items = 0; // no pagination
+        let result = build_feed_from_articles(articles, &opts);
+        let item = &result.pages[0].channel.items()[0];
+        let link = item.link().unwrap();
+        // Should not have a double slash.
+        assert!(
+            !link.contains("//post.html"),
+            "double slash in link: {link}"
+        );
+    }
+
+    // ── pagination ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn pagination_disabled_all_items_in_one_page() {
+        let articles: Vec<Article> = (0..15)
+            .map(|i| make_article(&format!("Post {i}"), &format!("{i}.md"), None, None))
+            .collect();
+        let mut opts = default_opts("https://example.com");
+        opts.max_items = 5;
+        opts.paginated = false; // disabled
+        let result = build_feed_from_articles(articles, &opts);
+        assert_eq!(result.pages.len(), 1);
+        assert_eq!(result.pages[0].channel.items().len(), 15);
+    }
+
+    #[test]
+    fn pagination_splits_into_multiple_pages() {
+        let articles: Vec<Article> = (0..12)
+            .map(|i| make_article(&format!("Post {i}"), &format!("{i}.md"), None, None))
+            .collect();
+        let mut opts = default_opts("https://example.com");
+        opts.max_items = 5;
+        opts.paginated = true;
+        let result = build_feed_from_articles(articles, &opts);
+        // 12 items at 5 per page = 3 pages (5, 5, 2).
+        assert_eq!(result.pages.len(), 3);
+        assert_eq!(result.pages[0].channel.items().len(), 5);
+        assert_eq!(result.pages[1].channel.items().len(), 5);
+        assert_eq!(result.pages[2].channel.items().len(), 2);
+    }
+
+    #[test]
+    fn pagination_page_filenames_are_correct() {
+        let articles: Vec<Article> = (0..11)
+            .map(|i| make_article(&format!("Post {i}"), &format!("{i}.md"), None, None))
+            .collect();
+        let mut opts = default_opts("https://example.com");
+        opts.max_items = 5;
+        opts.paginated = true;
+        let result = build_feed_from_articles(articles, &opts);
+        assert_eq!(result.pages[0].filename, "rss.xml");
+        assert_eq!(result.pages[1].filename, "rss2.xml");
+        assert_eq!(result.pages[2].filename, "rss3.xml");
+    }
+
+    #[test]
+    fn pagination_atom_self_link_matches_filename() {
+        let articles: Vec<Article> = (0..11)
+            .map(|i| make_article(&format!("Post {i}"), &format!("{i}.md"), None, None))
+            .collect();
+        let mut opts = default_opts("https://example.com");
+        opts.max_items = 5;
+        opts.paginated = true;
+        let result = build_feed_from_articles(articles, &opts);
+
+        for (idx, page) in result.pages.iter().enumerate() {
+            let ext_map = page.channel.extensions();
+            let atom_ext = ext_map.get("atom").expect("atom namespace present");
+            let links = atom_ext.get("link").expect("atom:link present");
+            let self_link = links
+                .iter()
+                .find(|l| l.attrs().get("rel").map(String::as_str) == Some("self"))
+                .expect("rel=self link");
+            let href = self_link.attrs().get("href").unwrap();
+            let expected_filename = rss_filename(idx);
+            assert!(
+                href.ends_with(&expected_filename),
+                "page {idx} self link '{href}' should end with '{expected_filename}'"
+            );
+        }
+    }
+
+    #[test]
+    fn pagination_first_page_has_next_but_no_prev() {
+        let articles: Vec<Article> = (0..11)
+            .map(|i| make_article(&format!("Post {i}"), &format!("{i}.md"), None, None))
+            .collect();
+        let mut opts = default_opts("https://example.com");
+        opts.max_items = 5;
+        opts.paginated = true;
+        let result = build_feed_from_articles(articles, &opts);
+
+        let ext_map = result.pages[0].channel.extensions();
+        let links = ext_map["atom"]["link"].as_slice();
+        let rels: Vec<&str> = links
+            .iter()
+            .filter_map(|l| l.attrs().get("rel").map(String::as_str))
+            .collect();
+        assert!(rels.contains(&"next"), "first page should have next");
+        assert!(!rels.contains(&"prev"), "first page should not have prev");
+    }
+
+    #[test]
+    fn pagination_last_page_has_prev_but_no_next() {
+        let articles: Vec<Article> = (0..11)
+            .map(|i| make_article(&format!("Post {i}"), &format!("{i}.md"), None, None))
+            .collect();
+        let mut opts = default_opts("https://example.com");
+        opts.max_items = 5;
+        opts.paginated = true;
+        let result = build_feed_from_articles(articles, &opts);
+
+        let last = result.pages.last().unwrap();
+        let ext_map = last.channel.extensions();
+        let links = ext_map["atom"]["link"].as_slice();
+        let rels: Vec<&str> = links
+            .iter()
+            .filter_map(|l| l.attrs().get("rel").map(String::as_str))
+            .collect();
+        assert!(rels.contains(&"prev"), "last page should have prev");
+        assert!(!rels.contains(&"next"), "last page should not have next");
+    }
+
+    #[test]
+    fn no_pagination_when_items_fit_in_one_page() {
+        let articles: Vec<Article> = (0..3)
+            .map(|i| make_article(&format!("Post {i}"), &format!("{i}.md"), None, None))
+            .collect();
+        let mut opts = default_opts("https://example.com");
+        opts.max_items = 10;
+        opts.paginated = true;
+        let result = build_feed_from_articles(articles, &opts);
+        // 3 items fits within max_items=10 — should be a single page.
+        assert_eq!(result.pages.len(), 1);
+    }
+
+    #[test]
+    fn build_feed_from_articles_empty_articles_returns_one_empty_page() {
+        let opts = default_opts("https://example.com");
+        let result = build_feed_from_articles(vec![], &opts);
+        assert_eq!(result.pages.len(), 1);
+        assert_eq!(result.pages[0].channel.items().len(), 0);
+    }
+}
