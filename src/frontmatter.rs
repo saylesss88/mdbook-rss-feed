@@ -44,7 +44,9 @@ where
         return Ok(Some(Utc.from_utc_datetime(&midnight)));
     }
 
-    Ok(None)
+    Err(serde::de::Error::custom(format!(
+        "invalid date '{date_str}': expected RFC3339 or YYYY-MM-DD"
+    )))
 }
 
 /// Raw deserialization target. `title` is optional so that a chapter with
