@@ -4,7 +4,7 @@ version = "1.8.0"
 edition = "2024"
 authors = ["T. Sawyer saylesss88@github.com"]
 license = "Apache-2.0"
-description = "An mdBook preprocessor that generates a full-content RSS/Atom feed from your book"
+description = "An mdBook preprocessor that generates RSS, Atom, and JSON feeds"
 repository = "https://github.com/saylesss88/mdbook-rss-feed"
 readme = "README.md"
 keywords = ["mdbook", "rss", "feed", "preprocessor", "blog"]
@@ -42,3 +42,27 @@ thiserror = "2.0.20"
 default = []
 json-feed = []
 atom = ["dep:atom_syndication"]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[lints.rust]
+unsafe_code = "forbid"
+future_incompatible = {level = "warn", priority = -1}
+nonstandard_style = {level = "warn", priority = -1}
+rust_2018_idioms = {level = "warn", priority = -1}
+
+[lints.rustdoc]
+all = "warn"
+missing_crate_level_docs = "warn"
+
+[lints.clippy]
+all = {level = "warn", priority = -1}
+pedantic = {level = "warn", priority = -1}
+todo = "warn"
+dbg_macro = "warn"
+unwrap_used = "warn"
