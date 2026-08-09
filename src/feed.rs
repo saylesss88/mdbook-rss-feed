@@ -219,7 +219,9 @@ fn articles_to_items(articles: Vec<Article>, opts: &FeedOptions<'_>, base_url: &
                 permalink: true,
             }));
             if let Some(date) = article.fm.date {
-                item.pub_date(Some(date.to_rfc2822()));
+                // chrono's to_rfc2822() doesn't zero-pad single-digit days,
+                // violating RFC 2822. Format manually to ensure compliance.
+                item.pub_date(Some(date.format("%a, %d %b %Y %T %z").to_string()));
             }
             if let Some(author) = article.fm.author {
                 item.author(Some(author));

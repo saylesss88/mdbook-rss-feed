@@ -8,7 +8,7 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [1.8.0] - 2026-08-08
+## [1.8.0] - 2026-08-09
 
 ### Added
 
@@ -17,6 +17,13 @@ and this project adheres to
   allowing feed readers to discover adjacent pages. The `xmlns:atom` namespace
   is declared on the `<rss>` element per the convention. Single-page feeds get a
   `rel="self"` link only.
+
+### Fixed
+
+- `pubDate` in RSS items now zero-pads single-digit days (e.g. `02 Aug` instead
+  of `2 Aug`) to comply with RFC 2822.
+
+- Remove unused `anyhow` dep.
 
 ## [1.7.0] - 2026-08-08
 
