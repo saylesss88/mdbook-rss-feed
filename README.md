@@ -12,17 +12,18 @@ you want to publish a feed for.
   `SUMMARY.md` appear in the feed
 - Per-chapter feed visibility control via `feed: include` / `feed: exclude`
   frontmatter, with a book-level `default-behavior` option for opt-in mode
+- `title` is optional in frontmatter. Falls back to the first `# Heading` in the
+  chapter body, then to the chapter name from `SUMMARY.md`
 - Hybrid HTML preview built from the first paragraphs of each chapter, with
   fallback to a frontmatter `description` when the body is short or missing
 - Optional full-content entries instead of previews
-- Optional pagination (`rss2.xml`, `rss3.xml`, …) to keep the main feed small
+- Optional pagination (`rss2.xml`, `rss3.xml`, …) with `atom:link` pagination
+  discovery links so feed readers can find adjacent pages
 - Optional Atom (`atom.xml`) and JSON Feed (`feed.json`) output alongside RSS
-- Reads `date:` from frontmatter (RFC3339 or `YYYY-MM-DD`), falling back to
-  file modification time
+- Reads `date:` from frontmatter (RFC3339 or `YYYY-MM-DD`)
 - Works with or without frontmatter; zero-config by default
-- Strict mode with `strict = true` in `[preprocessor.rss-feed]` to cause the
-  book build to fail on any frontmatter parse error, instead of warning and
-  continuing. Useful for CI pipelines.
+- `strict = true` mode fails the build immediately on any frontmatter parse
+   error instead of warning and continuing. (useful for CI pipelines)
 
 ## Installation
 
@@ -49,7 +50,7 @@ and skips that output rather than failing the build.
 Version check:
 
 ```bash
-mdbook-rss-feed --version
+mdbook-rss-feed --version  # -V also works
 ```
 
 ## Usage
@@ -62,13 +63,14 @@ src = "src"
 
 [preprocessor.rss-feed]
 renderers = ["html"]
-# before = ["frontmatter-strip"] # If you use mdbook-frontmatter-strip
-# full-preview = true   # use the whole chapter as the preview, not an excerpt
-# atom = true           # also write atom.xml (needs the `atom` feature)
-# json-feed = true      # also write feed.json (needs the `json-feed` feature)
-# paginated = true       # split into rss.xml, rss2.xml, ... once max-items is exceeded
-# max-items = 4
+# before = ["frontmatter-strip"]     # If you use `mdbook-frontmatter-strip`
+# full-preview = true                # use the whole chapter as the preview, not an excerpt
+# atom = true                        # also write atom.xml (needs the `atom` feature)
+# json-feed = true                   # also write feed.json (needs the `json-feed` feature)
+# paginated = true                   # split into rss.xml, rss2.xml, ... 
+# max-items = 4                      # items per page when paginated
 # default-behavior = "exclude-all"   # opt-in mode: only include chapters marked feed: include
+# strict = true
 
 [output.html]
 site-url = "https://your-user.github.io/"
@@ -81,7 +83,7 @@ site-url = "https://your-user.github.io/"
 - With the config above, the feed is published at
   `https://your-user.github.io/rss.xml`.
 - `full-preview = true` lets readers read the whole entry in their feed
-  reader without visiting the site — better privacy, fewer tracked page
+  reader without visiting the site. Better privacy, fewer tracked page
   views.
 
 ### Pagination
@@ -95,14 +97,13 @@ Enable with `paginated = true` and `max-items = N` in `[preprocessor.rss-feed]`.
   file modification time.
 - `rss.xml` holds the newest `N` items; older items spill into `rss2.xml`,
   `rss3.xml`, etc.
+- Paginated RSS feeds include `atom:link` elements with `rel="self"`,
+  `rel="next"`, and `rel="prev"` so feed readers can discover adjacent pages.
 - If `atom`/`json-feed` are enabled, their paginated pages mirror the RSS pages
   (`atom2.xml`, `feed2.json`, …). Atom pages include `rel="next"`/ `rel="prev"`
   links; JSON Feed pages include `next_url`, per the JSON Feed 1.1 spec.
 
-Pagination relies on accurate `date:` frontmatter. Chapters without a `date:`
-field sort last in the feed rather than by file modification time. For reliable
-chronological ordering, add date: to every chapter. Use `strict = true` to catch
-missing or malformed dates at build time.
+Use `strict = true` to catch missing or malformed dates at build time.
 
 To turn pagination back off: set `paginated = false` and `max-items = 0`,
 delete any `rss2.xml`, `atom2.xml`, `feed2.json` (etc.) files from `src/`,
@@ -116,15 +117,22 @@ Frontmatter is optional. Without it, entries fall back to the chapter name
 from `SUMMARY.md`. With it, the same block drives all three feed formats:
 
 ```yaml
+---
 title: Debugging NixOS modules
 date: 2025-11-22
 author: saylesss88
 description: This chapter covers debugging NixOS modules, focusing on tracing
   module options and evaluating merges.
+---
 ```
-
+- `title` is optional. If omitted, the preprocessor uses the first `# Heading`
+  in the chapter body, then falls back to the chapter name from the `SUMMARY.md`.
+  This means you never need to repeat your headings as a frontmatter field.
 - Dates must be RFC3339 or `YYYY-MM-DD` to sort correctly; add them to every
   chapter for reliable chronological order.
+- If frontmatter is present but fails to parse, a warning is printed to stderr
+  and the chapter falls back to defaults. Check stderr if ordering looks wrong,
+  or enable `strict = true` to fail the build instead.
 - A loader like
   [mdbook-content-loader](https://crates.io/crates/mdbook-content-loader) can
   enforce typed, validated frontmatter so dates are always present, this makes
@@ -196,29 +204,11 @@ strict = true
 ```
 
 With `strict = true`, any chapter whose frontmatter cannot be parsed will cause
-mdbook build to exit with a non-zero code. This is useful in CI pipelines where
-a silent fallback would produce a wrong feed without any visible failure.
+`mdbook build` to exit with a non-zero code. This is useful in CI pipelines
+where a silent fallback would produce a wrong feed without any visible failure.
 
 Without strict mode, check stderr output during mdbook build for lines starting
 with `mdbook-rss-feed: warning:` to catch parse issues manually.
-
-And the title fallback behavior is worth documenting in the same area. Add this
-to the existing Frontmatter section where it describes the `title` field:
-
-`title` is optional. If omitted, the preprocessor falls back to the first
-`# Heading` in the chapter body, then to the chapter name from `SUMMARY.md`.
-This means a file like:
-
-```yaml
----
-date: 2026-08-01
-feed: include
----
-# My Chapter Title
-```
-
-will use `My Chapter Title` as the feed item title without requiring a duplicate
-`title:` field.
 
 ### How the preview is built
 
@@ -335,6 +325,15 @@ into the rendered HTML. Use
 [mdbook-frontmatter-strip](https://crates.io/crates/mdbook-frontmatter-strip)
 to remove it.
 
+> [!NOTE]
+> Run `mdbook-rss-feed` before `mdbook-frontmatter-strip` so the feed sees the
+> frontmatter before it is stripped. Add to `book.toml`:
+>
+> ```rs
+> [preprocessor.rss-feed]
+> before = ["frontmatter-strip"]
+>```
+
 ## RSS button for the mdBook header
 
 <details>
@@ -373,7 +372,7 @@ additional-js = ["theme/rss-button.js"]
 `theme/rss-button.js`:
 
 > [!NOTE]
-> Make sure to change the line `rssLink.href = "https://your-user.github.io/rss.xml"; // set to your feed URL` to your page.
+> Change the `rssLink.href` to your feed URL before adding this file.
 
 ```js
 document.addEventListener("DOMContentLoaded", () => {
