@@ -173,7 +173,7 @@ checksum = "2e126dda6f34391ab7b444f9922055facc83c07a910da3eb16f1e4d9c45dc777"
 
 [[package]]
 name = "mdbook-rss-feed"
-version = "1.8.1"
+version = "1.8.1-dev"
 dependencies = [
  "atom_syndication",
  "chrono",
