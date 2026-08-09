@@ -8,6 +8,16 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-08-08
+
+### Added
+
+- RSS pagination links: paginated RSS feeds now include `atom:link` elements
+  with `rel="self"`, `rel="next"`, and `rel="prev"` using the Atom namespace,
+  allowing feed readers to discover adjacent pages. The `xmlns:atom` namespace
+  is declared on the `<rss>` element per the convention. Single-page feeds get a
+  `rel="self"` link only.
+
 ## [1.7.0] - 2026-08-08
 
 ### Added
