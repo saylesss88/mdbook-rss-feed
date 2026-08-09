@@ -8,6 +8,19 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-08-09
+
+### Fixed
+
+- [Bug](https://github.com/saylesss88/mdbook-rss-feed/issues/8):Horizontal rules
+  (`---`) in the middle of a document body no longer trigger frontmatter
+  parsing. Frontmatter is now only detected when `---` appears on the very first
+  line of the file, matching standard frontmatter convention.
+- [Bug](https://github.com/saylesss88/mdbook-rss-feed/issues/7):`date:` values
+  that are present but unparseable (e.g. `date: invalid`) now produce a proper
+  parse error rather than silently falling back to `None`. This means
+  `strict = true` now correctly catches malformed dates.
+
 ## [1.8.0] - 2026-08-09
 
 ### Added
