@@ -1,4 +1,15 @@
 //! Scanning an mdBook `src` directory into [`Article`]s.
+//!
+//! Two collection strategies are provided:
+//!
+//! - [`articles_from_book_json`]: reads the already-processed book object
+//!   that mdBook passes to preprocessors on stdin. Chapter content has
+//!   `{{#include}}` directives already expanded, and only chapters listed in
+//!   `SUMMARY.md` are present. **Prefer this path.**
+//!
+//! - [`collect_articles`]: walks the `src/` directory on disk. Kept for
+//!   standalone/testing use. Does **not** expand `{{#include}}` directives
+//!   and does **not** filter to `SUMMARY.md` entries.
 
 use std::{fs, path::Path, time::SystemTime};
 
@@ -27,6 +38,9 @@ pub struct Article {
     pub path: String,
 }
 
+// ── Book JSON path ────────────────────────────────────────────────────────────
+
+/// Recursively walk a `BookItem` JSON array and collect chapters.
 fn walk_book_items(items: &Value, out: &mut Vec<Article>, strict: bool) {
     let Some(arr) = items.as_array() else { return };
 
@@ -98,6 +112,8 @@ pub fn articles_from_book_json(book_json: &Value, strict: bool) -> Vec<Article> 
 
     articles
 }
+
+// ── Filesystem path (legacy / standalone) ────────────────────────────────────
 
 /// Parses a markdown file and returns an [`Article`].
 ///
