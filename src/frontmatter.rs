@@ -220,3 +220,216 @@ pub fn parse_frontmatter(
 
     (fm, body)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── first_h1 ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn first_h1_finds_top_level_heading() {
+        let md = "# My Title\n\nSome content.";
+        assert_eq!(first_h1(md), Some("My Title".to_string()));
+    }
+
+    #[test]
+    fn first_h1_ignores_h2_and_deeper() {
+        let md = "## Section\n\n### Subsection\n\nContent.";
+        assert_eq!(first_h1(md), None);
+    }
+
+    #[test]
+    fn first_h1_skips_preceding_content() {
+        let md = "Some intro text.\n\n# Actual Title\n\nBody.";
+        assert_eq!(first_h1(md), Some("Actual Title".to_string()));
+    }
+
+    #[test]
+    fn first_h1_trims_trailing_whitespace() {
+        let md = "# Padded Title   \n\nContent.";
+        assert_eq!(first_h1(md), Some("Padded Title".to_string()));
+    }
+
+    #[test]
+    fn first_h1_empty_document_returns_none() {
+        assert_eq!(first_h1(""), None);
+    }
+
+    // ── resolve_title ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn resolve_title_prefers_frontmatter_title() {
+        let body = "# Heading Title\n\nContent.";
+        let result = resolve_title(Some("FM Title".to_string()), body, "fallback");
+        assert_eq!(result, "FM Title");
+    }
+
+    #[test]
+    fn resolve_title_falls_back_to_h1() {
+        let body = "# Heading Title\n\nContent.";
+        let result = resolve_title(None, body, "fallback");
+        assert_eq!(result, "Heading Title");
+    }
+
+    #[test]
+    fn resolve_title_falls_back_to_hint() {
+        let body = "No heading here, just text.";
+        let result = resolve_title(None, body, "my-fallback");
+        assert_eq!(result, "my-fallback");
+    }
+
+    #[test]
+    fn resolve_title_empty_fm_title_falls_through_to_h1() {
+        let body = "# Real Title\n\nContent.";
+        let result = resolve_title(Some("".to_string()), body, "fallback");
+        assert_eq!(result, "Real Title");
+    }
+
+    // ── parse_frontmatter ─────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_frontmatter_no_frontmatter_returns_whole_body() {
+        let raw = "# Plain Chapter\n\nJust content, no frontmatter.";
+        let (fm, body) = parse_frontmatter(raw, "hint", None, false);
+        assert_eq!(fm.title, "Plain Chapter");
+        assert!(body.contains("Just content"));
+        assert!(body.contains("# Plain Chapter"));
+    }
+
+    #[test]
+    fn parse_frontmatter_full_yaml_block() {
+        let raw = "---\ntitle: My Post\ndate: 2024-06-01\nauthor: Alice\ndescription: A summary.\n---\n\nBody content.";
+        let (fm, body) = parse_frontmatter(raw, "hint", None, false);
+        assert_eq!(fm.title, "My Post");
+        assert_eq!(fm.author.as_deref(), Some("Alice"));
+        assert_eq!(fm.description.as_deref(), Some("A summary."));
+        assert!(fm.date.is_some());
+        assert!(body.contains("Body content."));
+    }
+
+    #[test]
+    fn parse_frontmatter_date_rfc3339() {
+        let raw = "---\ndate: 2024-03-15T12:00:00Z\n---\n\nContent.";
+        let (fm, _) = parse_frontmatter(raw, "hint", None, false);
+        let date = fm.date.expect("should have parsed date");
+        assert_eq!(date.format("%Y-%m-%d").to_string(), "2024-03-15");
+    }
+
+    #[test]
+    fn parse_frontmatter_date_yyyy_mm_dd() {
+        let raw = "---\ndate: 2023-11-30\n---\n\nContent.";
+        let (fm, _) = parse_frontmatter(raw, "hint", None, false);
+        let date = fm.date.expect("should have parsed date");
+        assert_eq!(date.format("%Y-%m-%d").to_string(), "2023-11-30");
+    }
+
+    #[test]
+    fn parse_frontmatter_title_from_h1_when_no_yaml_title() {
+        let raw = "---\ndate: 2024-01-01\n---\n\n# Heading From Body\n\nContent.";
+        let (fm, _) = parse_frontmatter(raw, "hint", None, false);
+        assert_eq!(fm.title, "Heading From Body");
+    }
+
+    #[test]
+    fn parse_frontmatter_title_hint_fallback() {
+        let raw = "---\ndate: 2024-01-01\n---\n\nNo heading here.";
+        let (fm, _) = parse_frontmatter(raw, "my-chapter", None, false);
+        assert_eq!(fm.title, "my-chapter");
+    }
+
+    #[test]
+    fn parse_frontmatter_unclosed_delimiter_treated_as_body() {
+        // Opening `---` but no closing one — entire file is body.
+        let raw = "---\ntitle: Orphaned\ndate: 2024-01-01\n";
+        let (fm, body) = parse_frontmatter(raw, "fallback", None, false);
+        // Title should come from the body (which contains the raw `---` and
+        // yaml) or fall back to hint; importantly it should NOT crash.
+        let _ = fm.title; // just check it doesn't panic
+        assert!(body.contains("---"));
+    }
+
+    #[test]
+    fn parse_frontmatter_empty_yaml_block() {
+        let raw = "---\n---\n\n# Body Heading\n\nContent.";
+        let (fm, body) = parse_frontmatter(raw, "hint", None, false);
+        // Empty YAML block => title from h1.
+        assert_eq!(fm.title, "Body Heading");
+        assert!(body.contains("Content."));
+    }
+
+    #[test]
+    fn parse_frontmatter_feed_include() {
+        let raw = "---\ntitle: Included\nfeed: include\n---\n\nContent.";
+        let (fm, _) = parse_frontmatter(raw, "hint", None, false);
+        assert_eq!(fm.feed, Some(FeedVisibility::Include));
+    }
+
+    #[test]
+    fn parse_frontmatter_feed_exclude() {
+        let raw = "---\ntitle: Hidden\nfeed: exclude\n---\n\nContent.";
+        let (fm, _) = parse_frontmatter(raw, "hint", None, false);
+        assert_eq!(fm.feed, Some(FeedVisibility::Exclude));
+    }
+
+    #[test]
+    fn parse_frontmatter_no_feed_key_is_none() {
+        let raw = "---\ntitle: Normal\n---\n\nContent.";
+        let (fm, _) = parse_frontmatter(raw, "hint", None, false);
+        assert_eq!(fm.feed, None);
+    }
+
+    #[test]
+    fn parse_frontmatter_fallback_date_used_when_no_yaml_date() {
+        use chrono::TimeZone;
+        let fallback = chrono::Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
+        let raw = "---\ntitle: No Date\n---\n\nContent.";
+        let (fm, _) = parse_frontmatter(raw, "hint", Some(fallback), false);
+        assert_eq!(fm.date, Some(fallback));
+    }
+
+    #[test]
+    fn parse_frontmatter_yaml_date_overrides_fallback() {
+        use chrono::TimeZone;
+        let fallback = chrono::Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
+        let raw = "---\ntitle: Has Date\ndate: 2024-06-15\n---\n\nContent.";
+        let (fm, _) = parse_frontmatter(raw, "hint", Some(fallback), false);
+        let date = fm.date.expect("should have a date");
+        // Should be 2024-06-15, not the 2020 fallback.
+        assert_eq!(date.format("%Y-%m-%d").to_string(), "2024-06-15");
+    }
+
+    #[test]
+    fn parse_frontmatter_invalid_yaml_non_strict_warns_and_continues() {
+        // Malformed YAML (unclosed bracket) - should not panic in non-strict mode.
+        let raw = "---\ntitle: [unclosed\n---\n\n# Heading\n\nContent.";
+        let (fm, body) = parse_frontmatter(raw, "fallback", None, false);
+        // Title falls back to h1 or hint.
+        assert!(!fm.title.is_empty());
+        assert!(body.contains("Content."));
+    }
+
+    // ── deserialize_date ─────────────────────────────────────────────────────
+
+    #[test]
+    fn deserialize_date_accepts_rfc3339() {
+        let raw = "---\ndate: 2024-07-04T00:00:00Z\n---\n\nContent.";
+        let (fm, _) = parse_frontmatter(raw, "hint", None, false);
+        assert!(fm.date.is_some());
+        assert_eq!(
+            fm.date.unwrap().format("%Y-%m-%d").to_string(),
+            "2024-07-04"
+        );
+    }
+
+    #[test]
+    fn deserialize_date_accepts_naive_date() {
+        let raw = "---\ndate: 2024-07-04\n---\n\nContent.";
+        let (fm, _) = parse_frontmatter(raw, "hint", None, false);
+        assert!(fm.date.is_some());
+        assert_eq!(
+            fm.date.unwrap().format("%Y-%m-%d").to_string(),
+            "2024-07-04"
+        );
+    }
+}
