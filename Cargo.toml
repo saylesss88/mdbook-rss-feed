@@ -26,7 +26,6 @@ name = "mdbook-rss-feed"
 path = "src/bin/mdbook-rss-feed.rs"
 
 [dependencies]
-anyhow = {version = "1.0.104", default-features = false}
 walkdir = "2"
 rss = "2.1.0"
 serde = {version = "1", features = ["serde_derive"], default-features = false}

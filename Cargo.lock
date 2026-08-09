@@ -3,12 +3,6 @@
 version = 4
 
 [[package]]
-name = "anyhow"
-version = "1.0.104"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
-
-[[package]]
 name = "atom_syndication"
 version = "0.12.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -179,9 +173,8 @@ checksum = "2e126dda6f34391ab7b444f9922055facc83c07a910da3eb16f1e4d9c45dc777"
 
 [[package]]
 name = "mdbook-rss-feed"
-version = "1.7.0"
+version = "1.8.0"
 dependencies = [
- "anyhow",
  "atom_syndication",
  "chrono",
  "pulldown-cmark",
