@@ -122,22 +122,59 @@ pub fn parse_frontmatter(
     strict: bool,
 ) -> (FrontMatter, String) {
     let mut lines = raw.lines();
-    let mut yaml = String::new();
-    let mut in_yaml = false;
 
+    // Only treat the file as having frontmatter if the very first line is `---`.
+    // This prevents horizontal rules later in the document from being mistaken
+    // for the closing delimiter.
+    let first = lines.next().unwrap_or("");
+    if first.trim() != "---" {
+        // No frontmatter — put the first line back and treat everything as body.
+        let body = std::iter::once(first)
+            .chain(lines)
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        return (
+            FrontMatter {
+                title: resolve_title(None, &body, title_hint),
+                date: fallback_date,
+                author: None,
+                description: None,
+                feed: None,
+            },
+            body,
+        );
+    }
+
+    // First line was `---` read YAML until closing `---`
+    let mut yaml = String::new();
+    let mut closed = false;
     for line in lines.by_ref() {
-        let trimmed = line.trim();
-        if trimmed == "---" {
-            if !in_yaml {
-                in_yaml = true;
-                continue;
-            }
+        if line.trim() == "---" {
+            closed = true;
             break;
         }
-        if in_yaml {
-            yaml.push_str(line);
-            yaml.push('\n');
-        }
+        yaml.push_str(line);
+        yaml.push('\n');
+    }
+
+    // If we never found the closing `---`, treat the whole file as body.
+    if !closed {
+        let body = std::iter::once("---")
+            .chain(std::iter::once(yaml.as_str()))
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        return (
+            FrontMatter {
+                title: resolve_title(None, &body, title_hint),
+                date: fallback_date,
+                author: None,
+                description: None,
+                feed: None,
+            },
+            body,
+        );
     }
 
     let body = lines.collect::<Vec<_>>().join("\n") + "\n";
