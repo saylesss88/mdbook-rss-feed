@@ -84,6 +84,7 @@ pub struct FrontMatter {
 ///
 /// Scans lines for the first one starting with `# ` and returns the heading
 /// text without the `#` prefix. Returns `None` if no level-1 heading is found.
+#[must_use]
 pub fn first_h1(content: &str) -> Option<String> {
     content.lines().find_map(|line| {
         let trimmed = line.trim();
@@ -95,6 +96,7 @@ pub fn first_h1(content: &str) -> Option<String> {
 ///   1. `title` field in frontmatter YAML
 ///   2. First `# Heading` in the chapter body
 ///   3. `fallback` (chapter name from SUMMARY.md / file stem)
+#[must_use]
 pub fn resolve_title(fm_title: Option<String>, body: &str, fallback: &str) -> String {
     fm_title
         .filter(|t| !t.is_empty())

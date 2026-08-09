@@ -66,7 +66,7 @@ pub fn rss_to_atom(
         .iter()
         .map(|e| *e.updated())
         .max()
-        .unwrap_or_else(|| DateTime::parse_from_rfc3339("1970-01-01T00:00:00Z").unwrap());
+        .unwrap_or_else(|| DateTime::UNIX_EPOCH.into());
 
     let mut feed = AtomFeed::default();
     feed.set_title(channel.title().to_string());
