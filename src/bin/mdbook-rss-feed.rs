@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use serde_json::Value;
 
 use mdbook_rss_feed::{
-    articles_from_book_json, build_feed_from_articles, DefaultBehavior, FeedOptions,
+    DefaultBehavior, FeedOptions, articles_from_book_json, build_feed_from_articles,
 };
 
 fn handle_mdbook_hooks(args: &[String]) -> bool {
