@@ -1,8 +1,10 @@
 //! Building RSS 2.0 feed pages from collected articles.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::str::FromStr;
 
+use rss::extension::{Extension, ExtensionBuilder};
 use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
 
 use crate::article::{collect_articles, Article};
@@ -88,8 +90,66 @@ fn article_link(base_url: &str, article_path: &str) -> String {
     format!("{base_url}/{html_path}")
 }
 
+/// Build an `atom:link` extension element.
+///
+/// Used to add `rel="self"`, `rel="next"`, and `rel="prev"` links to RSS
+/// channels, following the Atom namespace convention for RSS pagination.
+fn atom_link(href: &str, rel: &str) -> Extension {
+    let mut attrs = BTreeMap::new();
+    attrs.insert("href".to_string(), href.to_string());
+    attrs.insert("rel".to_string(), rel.to_string());
+    ExtensionBuilder::default()
+        .name("atom:link".to_string())
+        .attrs(attrs)
+        .build()
+}
+
+/// Compute the RSS filename for a given zero-based page index.
+fn rss_filename(page_idx: usize) -> String {
+    if page_idx == 0 {
+        "rss.xml".to_string()
+    } else {
+        format!("rss{}.xml", page_idx + 1)
+    }
+}
+
 /// Build a single [`Channel`] from a slice of items.
-fn build_channel(title: &str, base_url: &str, description: &str, items: &[Item]) -> Channel {
+///
+/// - `rel="self"` — the canonical URL of this page
+/// - `rel="prev"` — the newer page, when this is not the first page
+/// - `rel="next"` — the older page, when this is not the last page
+fn build_channel(
+    title: &str,
+    base_url: &str,
+    description: &str,
+    items: &[Item],
+    page_idx: usize,
+    total_pages: usize,
+) -> Channel {
+    // Atom namespace links for pagination discovery.
+    let self_url = format!("{base_url}/{}", rss_filename(page_idx));
+    let mut atom_links = vec![atom_link(&self_url, "self")];
+
+    if page_idx > 0 {
+        let prev_url = format!("{base_url}/{}", rss_filename(page_idx - 1));
+        atom_links.push(atom_link(&prev_url, "prev"));
+    }
+    if page_idx + 1 < total_pages {
+        let next_url = format!("{base_url}/{}", rss_filename(page_idx + 1));
+        atom_links.push(atom_link(&next_url, "next"));
+    }
+
+    let mut namespaces = BTreeMap::new();
+    namespaces.insert(
+        "atom".to_string(),
+        "http://www.w3.org/2005/Atom".to_string(),
+    );
+
+    let mut inner: BTreeMap<String, Vec<Extension>> = BTreeMap::new();
+    inner.insert("link".to_string(), atom_links);
+    let mut extensions = BTreeMap::new();
+    extensions.insert("atom".to_string(), inner);
+
     ChannelBuilder::default()
         .title(title)
         .link(format!("{base_url}/"))
@@ -99,39 +159,41 @@ fn build_channel(title: &str, base_url: &str, description: &str, items: &[Item])
             "mdbook-rss-feed {}",
             env!("CARGO_PKG_VERSION")
         )))
+        .namespaces(namespaces)
+        .extensions(extensions)
         .build()
 }
 
 /// Split `items` into one or more [`FeedPage`]s according to `opts`.
 fn paginate(items: &[Item], opts: &FeedOptions<'_>, base_url: &str) -> Vec<FeedPage> {
-    let mut pages = Vec::new();
+    let mut pages: Vec<FeedPage> = Vec::new();
 
     let should_paginate = opts.paginated && opts.max_items > 0 && items.len() > opts.max_items;
     if !should_paginate {
-        let channel = build_channel(opts.title, base_url, opts.description, items);
-        pages.push(FeedPage {
+        let channel = build_channel(opts.title, base_url, opts.description, items, 0, 1);
+        return vec![FeedPage {
             filename: "rss.xml".to_string(),
             channel,
-        });
-        return pages;
+        }];
     }
 
     let total_pages = items.len().div_ceil(opts.max_items);
     for page_idx in 0..total_pages {
         let start = page_idx * opts.max_items;
         let end = (start + opts.max_items).min(items.len());
-        let slice = &items[start..end];
-
-        let filename = if page_idx == 0 {
-            "rss.xml".to_string()
-        } else {
-            format!("rss{}.xml", page_idx + 1)
-        };
-
-        let channel = build_channel(opts.title, base_url, opts.description, slice);
-        pages.push(FeedPage { filename, channel });
+        let channel = build_channel(
+            opts.title,
+            base_url,
+            opts.description,
+            &items[start..end],
+            page_idx,
+            total_pages,
+        );
+        pages.push(FeedPage {
+            filename: rss_filename(page_idx),
+            channel,
+        });
     }
-
     pages
 }
 
