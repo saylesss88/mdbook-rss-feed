@@ -18,7 +18,7 @@ use serde_json::Value;
 use walkdir::WalkDir;
 
 use crate::error::{FeedError, Result};
-use crate::frontmatter::{FrontMatter, parse_frontmatter};
+use crate::frontmatter::{parse_frontmatter, FrontMatter};
 
 /// Convert file modification time to UTC.
 fn systemtime_to_utc(st: SystemTime) -> DateTime<Utc> {
@@ -196,4 +196,271 @@ pub fn collect_articles(src_dir: &Path, strict: bool) -> Result<Vec<Article>> {
     articles.reverse();
 
     Ok(articles)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::fs;
+    use std::path::PathBuf;
+
+    // ── articles_from_book_json ───────────────────────────────────────────────
+
+    fn chapter_item(name: &str, content: &str, path: &str) -> serde_json::Value {
+        json!({
+            "Chapter": {
+                "name": name,
+                "content": content,
+                "source_path": path,
+                "sub_items": []
+            }
+        })
+    }
+
+    #[test]
+    fn articles_from_book_json_parses_basic_chapter() {
+        let book = json!({
+            "items": [
+                chapter_item("My Post", "---\ntitle: My Post\ndate: 2024-01-15\n---\n\nHello world.", "posts/hello.md")
+            ]
+        });
+        let articles = articles_from_book_json(&book, false);
+        assert_eq!(articles.len(), 1);
+        assert_eq!(articles[0].fm.title, "My Post");
+        assert_eq!(articles[0].path, "posts/hello.md");
+        assert!(articles[0].content.contains("Hello world."));
+    }
+
+    #[test]
+    fn articles_from_book_json_skips_separators_and_part_titles() {
+        let book = json!({
+            "items": [
+                { "Separator": {} },
+                { "PartTitle": "Part One" },
+                chapter_item("Real Chapter", "Content.", "chapter.md")
+            ]
+        });
+        let articles = articles_from_book_json(&book, false);
+        assert_eq!(articles.len(), 1);
+        assert_eq!(articles[0].path, "chapter.md");
+    }
+
+    #[test]
+    fn articles_from_book_json_skips_draft_chapters_with_empty_path() {
+        let book = json!({
+            "items": [
+                {
+                    "Chapter": {
+                        "name": "Draft",
+                        "content": "WIP.",
+                        "source_path": null,
+                        "path": null,
+                        "sub_items": []
+                    }
+                },
+                chapter_item("Published", "Content.", "published.md")
+            ]
+        });
+        let articles = articles_from_book_json(&book, false);
+        assert_eq!(articles.len(), 1);
+        assert_eq!(articles[0].path, "published.md");
+    }
+
+    #[test]
+    fn articles_from_book_json_recurses_into_sub_items() {
+        let book = json!({
+            "items": [
+                {
+                    "Chapter": {
+                        "name": "Parent",
+                        "content": "Parent content.",
+                        "source_path": "parent.md",
+                        "sub_items": [
+                            chapter_item("Child", "Child content.", "child.md")
+                        ]
+                    }
+                }
+            ]
+        });
+        let articles = articles_from_book_json(&book, false);
+        assert_eq!(articles.len(), 2);
+        let paths: Vec<&str> = articles.iter().map(|a| a.path.as_str()).collect();
+        assert!(paths.contains(&"parent.md"));
+        assert!(paths.contains(&"child.md"));
+    }
+
+    #[test]
+    fn articles_from_book_json_sorted_newest_first() {
+        let book = json!({
+            "items": [
+                chapter_item("Old", "---\ndate: 2022-01-01\n---\nOld.", "old.md"),
+                chapter_item("New", "---\ndate: 2024-06-01\n---\nNew.", "new.md"),
+                chapter_item("Mid", "---\ndate: 2023-03-15\n---\nMid.", "mid.md"),
+            ]
+        });
+        let articles = articles_from_book_json(&book, false);
+        assert_eq!(articles.len(), 3);
+        assert_eq!(articles[0].path, "new.md");
+        assert_eq!(articles[1].path, "mid.md");
+        assert_eq!(articles[2].path, "old.md");
+    }
+
+    #[test]
+    fn articles_from_book_json_undated_articles_sort_last() {
+        let book = json!({
+            "items": [
+                chapter_item("Undated", "No date.", "undated.md"),
+                chapter_item("Dated", "---\ndate: 2024-01-01\n---\nDated.", "dated.md"),
+            ]
+        });
+        let articles = articles_from_book_json(&book, false);
+        assert_eq!(articles.len(), 2);
+        assert_eq!(articles[0].path, "dated.md");
+        assert_eq!(articles[1].path, "undated.md");
+    }
+
+    #[test]
+    fn articles_from_book_json_empty_book_returns_empty_vec() {
+        let book = json!({ "items": [] });
+        let articles = articles_from_book_json(&book, false);
+        assert!(articles.is_empty());
+    }
+
+    #[test]
+    fn articles_from_book_json_missing_items_key_returns_empty() {
+        let book = json!({});
+        let articles = articles_from_book_json(&book, false);
+        assert!(articles.is_empty());
+    }
+
+    #[test]
+    fn articles_from_book_json_prefers_source_path_over_path() {
+        let book = json!({
+            "items": [{
+                "Chapter": {
+                    "name": "Test",
+                    "content": "Content.",
+                    "source_path": "actual/source.md",
+                    "path": "generated/output.html",
+                    "sub_items": []
+                }
+            }]
+        });
+        let articles = articles_from_book_json(&book, false);
+        assert_eq!(articles[0].path, "actual/source.md");
+    }
+
+    // ── parse_markdown_file ───────────────────────────────────────────────────
+
+    fn write_temp_file(dir: &std::path::Path, name: &str, content: &str) -> PathBuf {
+        let path = dir.join(name);
+        fs::write(&path, content).unwrap();
+        path
+    }
+
+    #[test]
+    fn parse_markdown_file_reads_content_and_strips_frontmatter() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_temp_file(
+            dir.path(),
+            "post.md",
+            "---\ntitle: Hello\ndate: 2024-01-01\n---\n\nBody text here.",
+        );
+        let article = parse_markdown_file(dir.path(), &path, false).unwrap();
+        assert_eq!(article.fm.title, "Hello");
+        assert!(article.content.contains("Body text here."));
+        assert_eq!(article.path, "post.md");
+    }
+
+    #[test]
+    fn parse_markdown_file_uses_stem_as_title_fallback() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_temp_file(dir.path(), "my-chapter.md", "No frontmatter here.");
+        let article = parse_markdown_file(dir.path(), &path, false).unwrap();
+        // Title falls back to file stem when there's no frontmatter or h1.
+        assert_eq!(article.fm.title, "my-chapter");
+    }
+
+    #[test]
+    fn parse_markdown_file_relative_path_strips_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let subdir = dir.path().join("subdir");
+        fs::create_dir(&subdir).unwrap();
+        let path = write_temp_file(&subdir, "nested.md", "Content.");
+        let article = parse_markdown_file(dir.path(), &path, false).unwrap();
+        // Path should be relative: "subdir/nested.md"
+        assert!(!article.path.starts_with('/'));
+        assert!(article.path.contains("nested.md"));
+    }
+
+    #[test]
+    fn parse_markdown_file_nonexistent_returns_err() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("ghost.md");
+        let result = parse_markdown_file(dir.path(), &missing, false);
+        assert!(result.is_err());
+    }
+
+    // ── collect_articles ─────────────────────────────────────────────────────
+
+    #[test]
+    fn collect_articles_walks_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        write_temp_file(
+            dir.path(),
+            "a.md",
+            "---\ntitle: A\ndate: 2024-02-01\n---\nA content.",
+        );
+        write_temp_file(
+            dir.path(),
+            "b.md",
+            "---\ntitle: B\ndate: 2024-01-01\n---\nB content.",
+        );
+        let articles = collect_articles(dir.path(), false).unwrap();
+        assert_eq!(articles.len(), 2);
+        // Sorted newest first.
+        assert_eq!(articles[0].fm.title, "A");
+        assert_eq!(articles[1].fm.title, "B");
+    }
+
+    #[test]
+    fn collect_articles_skips_summary_md() {
+        let dir = tempfile::tempdir().unwrap();
+        write_temp_file(
+            dir.path(),
+            "SUMMARY.md",
+            "# Summary\n\n- [Chapter](chapter.md)",
+        );
+        write_temp_file(dir.path(), "chapter.md", "# Chapter\n\nContent.");
+        let articles = collect_articles(dir.path(), false).unwrap();
+        assert_eq!(articles.len(), 1);
+        assert_eq!(articles[0].fm.title, "Chapter");
+    }
+
+    #[test]
+    fn collect_articles_skips_non_markdown_files() {
+        let dir = tempfile::tempdir().unwrap();
+        write_temp_file(dir.path(), "image.png", "fake png bytes");
+        write_temp_file(dir.path(), "style.css", "body { color: red; }");
+        write_temp_file(dir.path(), "real.md", "# Real\n\nContent.");
+        let articles = collect_articles(dir.path(), false).unwrap();
+        assert_eq!(articles.len(), 1);
+    }
+
+    #[test]
+    fn collect_articles_accepts_markdown_extension() {
+        let dir = tempfile::tempdir().unwrap();
+        write_temp_file(dir.path(), "post.markdown", "# Long Ext\n\nContent.");
+        let articles = collect_articles(dir.path(), false).unwrap();
+        assert_eq!(articles.len(), 1);
+        assert_eq!(articles[0].fm.title, "Long Ext");
+    }
+
+    #[test]
+    fn collect_articles_nonexistent_dir_returns_err() {
+        let path = PathBuf::from("/tmp/surely_does_not_exist_mdbook_rss_feed_test");
+        let result = collect_articles(&path, false);
+        assert!(result.is_err());
+    }
 }
