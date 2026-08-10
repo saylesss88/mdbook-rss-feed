@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use serde_json::Value;
 
 use mdbook_rss_feed::{
-    DefaultBehavior, FeedOptions, articles_from_book_json, build_feed_from_articles,
+    articles_from_book_json, build_feed_from_articles, DefaultBehavior, FeedOptions,
 };
 
 fn handle_mdbook_hooks(args: &[String]) -> bool {
@@ -39,6 +39,8 @@ struct FeedConfig {
     json_enabled: bool,
     #[cfg_attr(not(feature = "atom"), allow(dead_code))]
     atom_enabled: bool,
+    #[cfg_attr(not(feature = "atom"), allow(dead_code))]
+    authors: Vec<String>,
     strict: bool,
 }
 
@@ -93,6 +95,16 @@ impl FeedConfig {
                 .pointer("/config/preprocessor/rss-feed/atom")
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
+            authors: context
+                .pointer("/config/book/authors")
+                .and_then(Value::as_array)
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect()
+                })
+                .unwrap_or_default(),
             strict: context
                 .pointer("/config/preprocessor/rss-feed/strict")
                 .and_then(Value::as_bool)
@@ -208,6 +220,7 @@ fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) ->
             Some(&self_url),
             next_url.as_deref(),
             prev_url.as_deref(),
+            &config.authors,
         );
         let atom_path = config.src_dir.join(if page_idx == 0 {
             "atom.xml".to_string()
@@ -243,7 +256,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 3. EXTRACT CONFIG & BOOK
     let config = FeedConfig::from_json(context);
 
-    // 4. BUILD FEED
+    // 4. COLLECT ARTICLES FROM THE BOOK JSON
+    // This uses the already-processed book rather than walking the fs
     let articles = articles_from_book_json(book, config.strict);
 
     eprintln!(

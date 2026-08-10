@@ -6,7 +6,7 @@
 
 use atom_syndication::{
     Content as AtomContent, Entry as AtomEntry, Feed as AtomFeed, Link as AtomLink,
-    Text as AtomText,
+    Person as AtomPerson, Text as AtomText,
 };
 use chrono::DateTime;
 use rss::Channel;
@@ -45,6 +45,14 @@ fn build_entry(item: &rss::Item) -> AtomEntry {
         entry.set_updated(dt);
     }
 
+    // Set per-entry author from RSS `<author>` field if present
+    if let Some(author) = item.author() {
+        entry.set_authors(vec![AtomPerson {
+            name: author.to_string(),
+            ..Default::default()
+        }]);
+    }
+
     entry
 }
 
@@ -58,6 +66,7 @@ pub fn rss_to_atom(
     self_url: Option<&str>,
     next_url: Option<&str>,
     prev_url: Option<&str>,
+    authors: &[String],
 ) -> AtomFeed {
     let entries: Vec<AtomEntry> = channel.items().iter().map(build_entry).collect();
 
@@ -72,6 +81,19 @@ pub fn rss_to_atom(
     feed.set_title(channel.title().to_string());
     feed.set_updated(latest);
     feed.set_entries(entries);
+
+    // Feed-level authors: required by Atom spec when entries lack individual authors
+    if !authors.is_empty() {
+        feed.set_authors(
+            authors
+                .iter()
+                .map(|name| AtomPerson {
+                    name: name.clone(),
+                    ..Default::default()
+                })
+                .collect::<Vec<_>>(),
+        );
+    }
 
     let home = channel.link();
 
