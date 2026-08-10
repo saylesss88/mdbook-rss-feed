@@ -8,6 +8,15 @@ and this project adheres to
 
 ## [Unreleased]
 
+
+## [1.9.0] - 2026-08-10
+
+### Fixed
+- Atom feeds now include feed-level `<author>` elements sourced from the
+  `authors` field in `[book]` in `book.toml`, satisfying the Atom spec
+  requirement. Per-entry `<author>` elements are also set when a chapter's
+  frontmatter includes an `author:` field.
+
 ### Added
 
 - **Test suite**: `frontmatter`, `article`, and `feed` modules now have inline
