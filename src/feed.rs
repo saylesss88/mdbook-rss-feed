@@ -254,6 +254,7 @@ pub fn build_feed(src_dir: &Path, opts: &FeedOptions<'_>) -> Result<BuildResult>
     Ok(build_feed_from_articles(articles, opts))
 }
 
+#[allow(clippy::unwrap_used)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -286,7 +287,7 @@ mod tests {
         }
     }
 
-    fn default_opts<'a>(site_url: &'a str) -> FeedOptions<'a> {
+    fn default_opts(site_url: &str) -> FeedOptions<'_> {
         FeedOptions {
             title: "Test Blog",
             site_url,
@@ -424,7 +425,14 @@ mod tests {
         let result = build_feed_from_articles(articles, &opts);
         let item = &result.pages[0].channel.items()[0];
         let link = item.link().unwrap();
-        assert!(link.ends_with(".html"), "link should end in .html: {link}");
+
+        assert!(
+            std::path::Path::new(link)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("html")),
+            "link should end in .html: {link}"
+        );
+
         assert!(link.starts_with("https://example.com"));
     }
 

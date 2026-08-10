@@ -198,6 +198,7 @@ pub fn collect_articles(src_dir: &Path, strict: bool) -> Result<Vec<Article>> {
     Ok(articles)
 }
 
+#[allow(clippy::unwrap_used)]
 #[cfg(test)]
 mod tests {
     use super::*;

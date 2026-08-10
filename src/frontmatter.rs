@@ -221,6 +221,7 @@ pub fn parse_frontmatter(
     (fm, body)
 }
 
+#[allow(clippy::unwrap_used)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -282,7 +283,7 @@ mod tests {
     #[test]
     fn resolve_title_empty_fm_title_falls_through_to_h1() {
         let body = "# Real Title\n\nContent.";
-        let result = resolve_title(Some("".to_string()), body, "fallback");
+        let result = resolve_title(Some(String::new()), body, "fallback");
         assert_eq!(result, "Real Title");
     }
 
