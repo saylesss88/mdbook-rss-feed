@@ -244,7 +244,7 @@ pub fn build_feed_from_articles(articles: Vec<Article>, opts: &FeedOptions<'_>) 
 ///
 /// **Legacy path.** Does not expand `{{#include}}` directives and includes
 /// all `.md` files, not just those listed in `SUMMARY.md`. Prefer
-/// [`build_feed_from_articles`] with [`articles_from_book_json`] when
+/// [`build_feed_from_articles`] with [`crate::articles_from_book_json`] when
 /// running as an mdBook preprocessor.
 ///
 /// # Errors
