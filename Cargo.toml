@@ -1,6 +1,6 @@
 [package]
 name = "mdbook-rss-feed"
-version = "1.8.1-dev"
+version = "1.9.0"
 edition = "2024"
 authors = ["T. Sawyer saylesss88@github.com"]
 license = "Apache-2.0"
