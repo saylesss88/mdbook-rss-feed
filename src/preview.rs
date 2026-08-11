@@ -127,6 +127,72 @@ pub fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize
     }
 }
 
+/// Rewrite relative URLs in HTML to absolute ones using `base_url`.
+///
+/// Rewrites `src="..."` and `href="..."` attributes. Skips URLs that are
+/// already absolute (`http://`, `https://`, `//`) or fragment-only (`#`).
+pub fn make_urls_absolute(html: &str, base_url: &str, page_url: Option<&str>) -> String {
+    let base = base_url.trim_end_matches('/');
+
+    let is_absolute = |url: &str| -> bool {
+        url.starts_with("http://")
+            || url.starts_with("https://")
+            || url.starts_with("//")
+            || url.is_empty()
+    };
+
+    let mut result = String::with_capacity(html.len() + 64);
+    let mut rest = html;
+
+    while !rest.is_empty() {
+        // Find the next src=" or href=" occurrence.
+        let next_src = rest.find("src=\"");
+        let next_href = rest.find("href=\"");
+
+        let (pos, prefix_len) = match (next_src, next_href) {
+            (None, None) => break,
+            (Some(s), None) => (s, 5),
+            (None, Some(h)) => (h, 6),
+            (Some(s), Some(h)) => {
+                if s <= h {
+                    (s, 5)
+                } else {
+                    (h, 6)
+                }
+            }
+        };
+
+        // Copy everything up to and including the attribute prefix.
+        result.push_str(&rest[..pos + prefix_len]);
+        rest = &rest[pos + prefix_len..];
+
+        // Find the closing quote.
+        if let Some(end) = rest.find('"') {
+            let url = &rest[..end];
+
+            if is_absolute(url) {
+                // Already absolute, copy as-is
+                result.push_str(url);
+            } else if url.starts_with('#') {
+                if let Some(page) = page_url {
+                    result.push_str(page.trim_end_matches('/'));
+                }
+                result.push_str(url);
+            } else {
+                let path = url.trim_start_matches('/');
+                result.push_str(base);
+                result.push('/');
+                result.push_str(path);
+            }
+            result.push('"');
+            rest = &rest[end + 1..];
+        }
+    }
+
+    result.push_str(rest);
+    result
+}
+
 /// Choose and render a preview source for an article body.
 ///
 /// When `full_preview` is `true`, the entire body is rendered to HTML.
@@ -134,25 +200,33 @@ pub fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize
 /// `description` (preferring the body once it's long enough), strips
 /// leading boilerplate, slices it down before HTML conversion, and finally
 /// keeps only the first few rendered paragraphs.
-pub fn render_preview(content: &str, description: Option<&str>, full_preview: bool) -> String {
-    if full_preview {
-        return markdown_to_html(content);
-    }
-
-    let content_trimmed = content.trim();
-    let body_len = content_trimmed.chars().count();
-
-    let source_md = if body_len >= MIN_BODY_PREVIEW_CHARS || description.is_none() {
-        content_trimmed
+pub fn render_preview(
+    content: &str,
+    description: Option<&str>,
+    full_preview: bool,
+    base_url: &str,
+    page_url: Option<&str>,
+) -> String {
+    let html = if full_preview {
+        markdown_to_html(content)
     } else {
-        description.unwrap_or(content_trimmed)
+        let content_trimmed = content.trim();
+        let body_len = content_trimmed.chars().count();
+
+        let source_md = if body_len >= MIN_BODY_PREVIEW_CHARS || description.is_none() {
+            content_trimmed
+        } else {
+            description.unwrap_or(content_trimmed)
+        };
+
+        let source_md = strip_leading_boilerplate(source_md);
+        let source_md = utf8_prefix(source_md, PREVIEW_MD_SLICE_CHARS);
+
+        let raw_html = markdown_to_html(source_md);
+        html_first_paragraphs(&raw_html, 3, 800)
     };
 
-    let source_md = strip_leading_boilerplate(source_md);
-    let source_md = utf8_prefix(source_md, PREVIEW_MD_SLICE_CHARS);
-
-    let raw_html = markdown_to_html(source_md);
-    html_first_paragraphs(&raw_html, 3, 800)
+    make_urls_absolute(&html, base_url, page_url)
 }
 
 #[cfg(test)]
@@ -195,8 +269,23 @@ mod tests {
     #[test]
     fn render_preview_full_uses_whole_body() {
         let body = "# Heading\n\nSome content.";
-        let out = render_preview(body, None, true);
+        let out = render_preview(body, None, true, "https://example.com", None);
         assert!(out.contains("Some content."));
         assert!(out.contains("<h1>"));
+    }
+
+    #[test]
+    fn make_urls_absolute_rewrites_relative_src() {
+        let html = r#"<img src="images/foo.png"><img src="https://example.com/bar.png">"#;
+        let out = make_urls_absolute(html, "https://example.com/", None);
+        assert!(out.contains(r#"src="https://example.com/images/foo.png""#));
+        assert!(out.contains(r#"src="https://example.com/bar.png""#));
+    }
+
+    #[test]
+    fn make_urls_absolute_rewrites_relative_href() {
+        let html = r#"<a href="chapter/page.html">link</a>"#;
+        let out = make_urls_absolute(html, "https://example.com", None);
+        assert!(out.contains(r#"href="https://example.com/chapter/page.html""#));
     }
 }
