@@ -6,15 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
 
 ## [1.10.0] - 2026-08-11
 
+## [Unreleased]
+
 ### Fixed
 
+- Relative image and link URLs in feed content are now rewritten to absolute
+  URLs using `site-url` as the base, so feed readers can display images and
+  follow links without visiting the original page.
+
+- Fragment-only links (`#anchor`) are prefixed with the chapter's own URL (e.g.
+  `https://example.com/page.html#anchor`) so they resolve correctly when read
+  outside the context of the original page.
+
 - RSS `<author>` elements now use the RFC-compliant `email (Name)` format
-  required by the RSS 2.0 spec. A plain author name without an email address
-  is no longer emitted, which was causing feed validation failures. Set
+  required by the RSS 2.0 spec. A plain author name without an email address is
+  no longer emitted, which was causing feed validation failures. Set
   `author-email` in `[preprocessor.rss-feed]` to enable author output:
 
 ```toml
@@ -25,6 +34,7 @@ and this project adheres to
 ## [1.9.0] - 2026-08-10
 
 ### Fixed
+
 - Atom feeds now include feed-level `<author>` elements sourced from the
   `authors` field in `[book]` in `book.toml`, satisfying the Atom spec
   requirement. Per-entry `<author>` elements are also set when a chapter's
