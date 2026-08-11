@@ -42,6 +42,7 @@ struct FeedConfig {
     #[cfg_attr(not(feature = "atom"), allow(dead_code))]
     authors: Vec<String>,
     strict: bool,
+    author_email: Option<String>,
 }
 
 impl FeedConfig {
@@ -109,6 +110,10 @@ impl FeedConfig {
                 .pointer("/config/preprocessor/rss-feed/strict")
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
+            author_email: context
+                .pointer("/config/preprocessor/rss-feed/author-email")
+                .and_then(Value::as_str)
+                .map(str::to_string),
         }
     }
     fn feed_options(&self) -> FeedOptions<'_> {
@@ -121,6 +126,7 @@ impl FeedConfig {
             paginated: self.paginated,
             default_behavior: self.default_behavior.clone(),
             strict: self.strict,
+            author_email: self.author_email.clone(),
         }
     }
 }

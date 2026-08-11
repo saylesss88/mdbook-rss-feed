@@ -67,6 +67,7 @@ pub struct FeedOptions<'a> {
     pub paginated: bool,
     pub default_behavior: DefaultBehavior,
     pub strict: bool,
+    pub author_email: Option<String>,
 }
 
 /// Return `true` if this article should appear in the feed given `default_behavior`.
@@ -223,10 +224,11 @@ fn articles_to_items(articles: Vec<Article>, opts: &FeedOptions<'_>, base_url: &
                 // violating RFC 2822. Format manually to ensure compliance.
                 item.pub_date(Some(date.format("%a, %d %b %Y %T %z").to_string()));
             }
-            if let Some(author) = article.fm.author {
-                item.author(Some(author));
-            }
-            item.build()
+            if let Some(author) = article.fm.author 
+                && let Some(email) = &opts.author_email {
+                    item.author(Some(format!("{email} ({author})")));
+                }
+                        item.build()
         })
         .collect()
 }
@@ -297,6 +299,7 @@ mod tests {
             paginated: false,
             default_behavior: DefaultBehavior::IncludeAll,
             strict: false,
+            author_email: None,
         }
     }
 
