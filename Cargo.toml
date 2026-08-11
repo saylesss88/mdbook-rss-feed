@@ -35,7 +35,7 @@ pulldown-cmark = {version = "0.13", features = [
 ], default-features = false}
 serde_json = "1"
 atom_syndication = {version = "0.12.10", default-features = false, optional = true}
-yaml_serde = "0.10.4"
+yaml_serde = "0.10.5"
 thiserror = "2.0.20"
 
 [dev-dependencies]
