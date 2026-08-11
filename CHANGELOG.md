@@ -8,6 +8,19 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-08-11
+
+### Fixed
+
+- RSS `<author>` elements now use the RFC-compliant `email (Name)` format
+  required by the RSS 2.0 spec. A plain author name without an email address
+  is no longer emitted, which was causing feed validation failures. Set
+  `author-email` in `[preprocessor.rss-feed]` to enable author output:
+
+```toml
+  [preprocessor.rss-feed]
+  author-email = "you@example.com"
+```
 
 ## [1.9.0] - 2026-08-10
 
