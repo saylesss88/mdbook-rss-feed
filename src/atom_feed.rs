@@ -47,6 +47,8 @@ fn build_entry(item: &rss::Item) -> AtomEntry {
         .and_then(|d| DateTime::parse_from_rfc2822(d).ok())
     {
         entry.set_updated(dt);
+    } else {
+        entry.set_updated(fallback_updated());
     }
 
     // Set per-entry author from RSS `<author>` field if present
