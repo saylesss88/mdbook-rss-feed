@@ -18,7 +18,7 @@ use serde_json::Value;
 use walkdir::WalkDir;
 
 use crate::error::{FeedError, Result};
-use crate::frontmatter::{parse_frontmatter, FrontMatter};
+use crate::frontmatter::{FrontMatter, parse_frontmatter};
 
 /// Convert file modification time to UTC.
 fn systemtime_to_utc(st: SystemTime) -> DateTime<Utc> {
