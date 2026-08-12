@@ -13,6 +13,14 @@ and this project adheres to
 
 ### Fixed
 
+
+- Atom entries with no body content no longer emit an empty
+  `<content type="html"></content>` element, which was causing validation
+  warnings.
+- Atom feed-level `<updated>` no longer falls back to the Unix epoch
+  (`1970-01-01`) when no entries have dates, which was flagged as an
+  implausible date by the W3C validator. Falls back to `2000-01-01` instead.
+
 - Relative image and link URLs in feed content are now rewritten to absolute
   URLs using `site-url` as the base, so feed readers can display images and
   follow links without visiting the original page.
