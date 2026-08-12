@@ -60,6 +60,16 @@ fn build_entry(item: &rss::Item) -> AtomEntry {
     entry
 }
 
+/// A plausible fallback date when no entries carry a date
+///
+///  The Atom spec requires a feed-level `<updated>` element. Using the Unix
+/// epoch (`1970-01-01`) triggers a validator warning ("implausible date"), so
+/// we fall back to a fixed but reasonable date instead.
+fn fallback_updated() -> DateTime<chrono::FixedOffset> {
+    DateTime::parse_from_rfc3339("2000-01-01T00:00:00Z")
+        .expect("hardcoded RFC3339 date is always valid")
+}
+
 /// Convert an RSS 2.0 channel into a minimal Atom 1.0 feed.
 ///
 /// This is a best-effort mapping. It copies titles, links, descriptions (as
@@ -75,11 +85,12 @@ pub fn rss_to_atom(
     let entries: Vec<AtomEntry> = channel.items().iter().map(build_entry).collect();
 
     // Set feed-level updated to the most recent entry date.
+    // Fall back to plausible date rather then the Unix epoch
     let latest = entries
         .iter()
         .map(|e| *e.updated())
         .max()
-        .unwrap_or_else(|| DateTime::UNIX_EPOCH.into());
+        .unwrap_or_else(fallback_updated);
 
     let mut feed = AtomFeed::default();
     feed.set_title(channel.title().to_string());
