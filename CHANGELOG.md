@@ -31,6 +31,11 @@ and this project adheres to
   author-email = "you@example.com"
 ```
 
+### Added
+
+- Section in README about feed validation, mentioning that `mdbook-rss-feed`
+  generates valid RSS 2.0, Atom 1.0, and JSON Feed feeds.
+
 ## [1.9.0] - 2026-08-10
 
 ### Fixed
