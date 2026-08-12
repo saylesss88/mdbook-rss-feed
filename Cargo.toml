@@ -1,6 +1,6 @@
 [package]
 name = "mdbook-rss-feed"
-version = "1.9.0"
+version = "1.10.0"
 edition = "2024"
 authors = ["T. Sawyer saylesss88@github.com"]
 license = "Apache-2.0"
@@ -28,16 +28,18 @@ path = "src/bin/mdbook-rss-feed.rs"
 [dependencies]
 walkdir = "2"
 rss = "2.1.0"
-serde = { version = "1", features = ["serde_derive"], default-features = false }
-chrono = { version = "0.4", features = ["std"], default-features = false }
-pulldown-cmark = { version = "0.13", features = ["html"], default-features = false }
+serde = {version = "1", features = ["serde_derive"], default-features = false}
+chrono = {version = "0.4", features = ["std"], default-features = false}
+pulldown-cmark = {version = "0.13", features = [
+	"html",
+], default-features = false}
 serde_json = "1"
 atom_syndication = {version = "0.12.0", default-features = false, optional = true}
-yaml_serde = { version = "0.10.0", default-features = false }
+yaml_serde = {version = "0.10.0", default-features = false}
 thiserror = "2.0.0"
 
 [dev-dependencies]
-tempfile = { version = "3", default-features = false }
+tempfile = {version = "3", default-features = false}
 
 [features]
 default = []
