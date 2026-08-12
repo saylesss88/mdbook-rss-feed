@@ -32,7 +32,11 @@ fn build_entry(item: &rss::Item) -> AtomEntry {
             ..Default::default()
         }]);
     }
-    if let Some(desc) = item.description() {
+    // Only set content when it's non-empty
+    // an empty <content> element causes validation warnings.
+    if let Some(desc) = item.description()
+        && !desc.is_empty()
+    {
         let mut content = AtomContent::default();
         content.set_content_type("html".to_string());
         content.set_value(Some(desc.to_string()));
