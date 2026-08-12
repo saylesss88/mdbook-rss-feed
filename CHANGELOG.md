@@ -21,6 +21,8 @@ and this project adheres to
   (`1970-01-01`) when no entries have dates, which was flagged as an
   implausible date by the W3C validator. Falls back to `2000-01-01` instead.
 
+- Atom chapters with no date in the frontmatter now fallback to a plausible date
+
 - Relative image and link URLs in feed content are now rewritten to absolute
   URLs using `site-url` as the base, so feed readers can display images and
   follow links without visiting the original page.
