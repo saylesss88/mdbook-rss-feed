@@ -64,6 +64,7 @@ src = "src"
 [preprocessor.rss-feed]
 renderers = ["html"]
 # before = ["frontmatter-strip"]     # If you use `mdbook-frontmatter-strip`
+# author-email = "you@example.com"   # required for valid RSS <author> elements
 # full-preview = true                # use the whole chapter as the preview, not an excerpt
 # atom = true                        # also write atom.xml (needs the `atom` feature)
 # json-feed = true                   # also write feed.json (needs the `json-feed` feature)
@@ -137,6 +138,12 @@ description: This chapter covers debugging NixOS modules, focusing on tracing
   [mdbook-content-loader](https://crates.io/crates/mdbook-content-loader) can
   enforce typed, validated frontmatter so dates are always present, this makes
   pagination ordering more reliable, but isn't required.
+- `author` in frontmatter sets the per-item author name. RSS 2.0 requires
+  an email address for `<author>` elements, so author is omitted from RSS
+  output unless you set `author-email` in `[preprocessor.rss-feed]`: this
+  keeps the feed valid either way. When set, the output format is
+  `email (Name)`, e.g. `you@example.com (Your Name)`. Atom and JSON Feed
+  don't have this restriction and include the author name directly.
 
 ### Feed visibility
 
