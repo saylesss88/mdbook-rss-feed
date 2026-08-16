@@ -444,6 +444,19 @@ feed.
 
 </details>
 
+## Example
+
+Rebuild example using these commands
+
+```bash
+set -o errexit -o nounset -o pipefail -o errtrace
+
+cd docs
+mdbook clean
+git clean -xf src/rss*.xml src/atom*.xml src/feed*.json
+mdbook build
+```
+
 ## License
 
 [Apache License 2.0](https://github.com/saylesss88/mdbook-rss-feed/blob/main/LICENSE)

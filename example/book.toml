@@ -2,3 +2,8 @@
 title = "Example"
 authors = ["saylesss88"]
 language = "en"
+
+[preprocessor.rss-feed]
+atom = true
+json-feed = true
+strict = true
