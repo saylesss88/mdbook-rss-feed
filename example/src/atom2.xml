@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Example</title><id>https://example.com/atom2.xml</id><updated>2000-01-01T00:00:00+00:00</updated><author><name>saylesss88</name></author><link href="https://example.com/atom2.xml" rel="self"/><link href="https://example.com/atom3.xml" rel="next"/><link href="https://example.com/atom.xml" rel="prev"/><link href="https://example.com/" rel="alternate"/><subtitle>Description</subtitle><entry><title>Chapter 3</title><id>https://example.com/chapter_3.html</id><updated>2000-01-01T00:00:00+00:00</updated><link href="https://example.com/chapter_3.html" rel="alternate"/><content type="html">&lt;h1&gt;Chapter 3&lt;/h1&gt;
+</content></entry><entry><title>Chapter 4</title><id>https://example.com/chapter_4.html</id><updated>2000-01-01T00:00:00+00:00</updated><link href="https://example.com/chapter_4.html" rel="alternate"/><content type="html">&lt;h1&gt;Chapter 4&lt;/h1&gt;
+</content></entry></feed>

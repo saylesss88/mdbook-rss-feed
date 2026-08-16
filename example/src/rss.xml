@@ -1,6 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Example</title><link>https://example.com/</link><description>Description</description><generator>mdbook-rss-feed 1.10.0</generator><atom:link href="https://example.com/rss.xml" rel="self"></atom:link><item><title>Chapter 1</title><link>https://example.com/chapter_1.html</link><description><![CDATA[<ul>
+<?xml version="1.0" encoding="utf-8"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Example</title><link>https://example.com/</link><description>Description</description><generator>mdbook-rss-feed 1.10.0</generator><atom:link href="https://example.com/rss.xml" rel="self"></atom:link><atom:link href="https://example.com/rss2.xml" rel="next"></atom:link><item><title>Chapter 1</title><link>https://example.com/chapter_1.html</link><description><![CDATA[<ul>
 <li><a href="https://example.com/rss.xml">RSS</a></li>
 <li><a href="https://example.com/atom.xml">Atom</a></li>
 <li><a href="https://example.com/feed.json">JSON</a></li>
 </ul>
-]]></description><guid>https://example.com/chapter_1.html</guid></item></channel></rss>
+]]></description><guid>https://example.com/chapter_1.html</guid></item><item><title>Chapter 2</title><link>https://example.com/chapter_2.html</link><description><![CDATA[<h1>Chapter 2</h1>
+]]></description><guid>https://example.com/chapter_2.html</guid></item></channel></rss>

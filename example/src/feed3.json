@@ -1,0 +1,15 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Example",
+  "home_page_url": "https://example.com/",
+  "feed_url": "https://example.com/feed3.json",
+  "description": "Description",
+  "items": [
+    {
+      "id": "https://example.com/chapter_5.html",
+      "url": "https://example.com/chapter_5.html",
+      "title": "Chapter 5",
+      "content_html": "<h1>Chapter 5</h1>\n"
+    }
+  ]
+}
