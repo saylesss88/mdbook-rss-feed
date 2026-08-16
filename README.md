@@ -453,7 +453,7 @@ set -o errexit -o nounset -o pipefail -o errtrace
 
 cd docs
 mdbook clean
-git clean -xf src/rss*.xml src/atom*.xml src/feed*.json
+rm src/rss*.xml src/atom*.xml src/feed*.json
 mdbook build
 ```
 
