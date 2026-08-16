@@ -11,3 +11,4 @@ target/
 Thumbs.db
 *.log
 tmp/
+.direnv/
