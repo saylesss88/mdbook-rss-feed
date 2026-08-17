@@ -36,6 +36,7 @@ cargo install mdbook-rss-feed
 
 # RSS + Atom + JSON Feed
 cargo install mdbook-rss-feed --features atom,json-feed
+
 ```
 
 | Feature | Enables |
@@ -445,6 +446,19 @@ feed.
 </details>
 
 ## Example
+
+
+The [`example/`](https://github.com/saylesss88/mdbook-rss-feed/tree/main/example)
+directory contains a minimal working mdBook with pagination enabled, showing
+exactly what the generated `rss.xml`, `atom.xml`, and `feed.json` files look
+like across multiple pages.
+
+If you use Nix, a `flake.nix` is included in the repo root. It provides a
+development shell with `rustup`, `mdbook`, and `gnugrep`:
+
+```sh
+nix develop
+```
 
 Rebuild example using these commands
 
