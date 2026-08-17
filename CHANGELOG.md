@@ -12,6 +12,7 @@ and this project adheres to
 
 ### Changed
 
+- Update deps
 - `parse_frontmatter` is now split into `split_frontmatter` (delimiter
   detection) and `parse_frontmatter` (semantic interpretation), making each
   function independently testable and the logic easier to follow.

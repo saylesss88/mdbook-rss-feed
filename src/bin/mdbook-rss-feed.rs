@@ -189,9 +189,19 @@ fn write_json_pages(
 
 #[cfg(not(feature = "json-feed"))]
 fn write_json_pages(
-    _config: &FeedConfig,
+    config: &FeedConfig,
     _pages: &[mdbook_rss_feed::FeedPage],
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if config.json_enabled {
+        let msg = "mdbook-rss-feed: `json-feed = true` is set but this binary was \
+                   compiled without the `json-feed` feature. Reinstall with: \
+                   cargo install mdbook-rss-feed --features json-feed";
+        if config.strict {
+            eprintln!("error: {msg}");
+            std::process::exit(1);
+        }
+        eprintln!("warning: {msg}");
+    }
     Ok(())
 }
 
@@ -251,6 +261,16 @@ fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) ->
 
 #[cfg(not(feature = "atom"))]
 fn write_atom_pages(_config: &FeedConfig, _pages: &[mdbook_rss_feed::FeedPage]) -> io::Result<()> {
+    if _config.atom_enabled {
+        let msg = "mdbook-rss-feed: `atom = true` is set but this binary was \
+                   compiled without the `atom` feature. Reinstall with: \
+                   cargo install mdbook-rss-feed --features atom";
+        if _config.strict {
+            eprintln!("error: {msg}");
+            std::process::exit(1);
+        }
+        eprintln!("warning: {msg}");
+    }
     Ok(())
 }
 
