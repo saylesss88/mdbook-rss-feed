@@ -73,19 +73,9 @@ pub fn utf8_prefix(s: &str, max_chars: usize) -> &str {
         return "";
     }
 
-    let mut last_byte = 0;
-    for (ch_idx, (byte_idx, _)) in s.char_indices().enumerate() {
-        if ch_idx == max_chars {
-            last_byte = byte_idx;
-            break;
-        }
-        last_byte = byte_idx + 1;
-    }
-
-    if last_byte == 0 || last_byte >= s.len() {
-        s
-    } else {
-        &s[..last_byte]
+    match s.char_indices().nth(max_chars) {
+        Some((byte_idx, _)) => &s[..byte_idx],
+        None => s, // string has fewer than max_chars chars, return all of it
     }
 }
 
