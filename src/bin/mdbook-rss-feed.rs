@@ -177,6 +177,12 @@ fn write_json_pages(
             format!("feed{}.json", page_idx + 1)
         });
         fs::write(&json_path, serde_json::to_vec_pretty(&json_feed)?)?;
+        let json_bytes = serde_json::to_vec_pretty(&json_feed)?;
+        eprintln!(
+            "Writing JSON page {} ({} bytes)",
+            json_path.display(),
+            json_bytes.len()
+        );
     }
     Ok(())
 }
@@ -234,6 +240,11 @@ fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) ->
             format!("atom{}.xml", page_idx + 1)
         });
         fs::write(&atom_path, atom_feed.to_string())?;
+        eprintln!(
+            "Writing Atom page {} ({} bytes)",
+            atom_path.display(),
+            atom_feed.to_string().len()
+        );
     }
     Ok(())
 }
