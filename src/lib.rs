@@ -7,7 +7,7 @@
 mod article;
 mod error;
 mod feed;
-mod frontmatter;
+pub(crate) mod frontmatter;
 mod preview;
 
 #[cfg(feature = "atom")]
@@ -23,6 +23,6 @@ pub use error::{FeedError, Result};
 pub use feed::{
     BuildResult, DefaultBehavior, FeedOptions, FeedPage, build_feed, build_feed_from_articles,
 };
-pub use frontmatter::{FeedVisibility, FrontMatter, first_h1, resolve_title};
+pub use frontmatter::{FeedVisibility, FrontMatter, first_h1, parse_frontmatter, resolve_title};
 #[cfg(feature = "json-feed")]
 pub use json_feed::{JsonFeed, JsonFeedItem, rss_to_json_feed};

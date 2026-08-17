@@ -115,6 +115,7 @@ pub fn resolve_title(fm_title: Option<String>, body: &str, fallback: &str) -> St
 ///
 /// A warning is printed to stderr when YAML is present but fails to parse.
 /// If `strict` is `true`, the process exits with code 1 instead of warning.
+#[must_use]
 pub fn parse_frontmatter(
     raw: &str,
     title_hint: &str,
