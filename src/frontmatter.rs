@@ -53,13 +53,13 @@ where
 /// only `date:` (and no `title:`) doesn't cause a hard parse failure.
 #[derive(Debug, Deserialize, Clone)]
 struct RawFrontmatter {
-    pub title: Option<String>,
+    title: Option<String>,
     #[serde(deserialize_with = "deserialize_date", default)]
-    pub date: Option<DateTime<Utc>>,
-    pub author: Option<String>,
-    pub description: Option<String>,
+    date: Option<DateTime<Utc>>,
+    author: Option<String>,
+    description: Option<String>,
     #[serde(default)]
-    pub feed: Option<FeedVisibility>,
+    feed: Option<FeedVisibility>,
 }
 
 /// Parsed YAML frontmatter for a single chapter.
@@ -163,6 +163,7 @@ fn split_frontmatter(raw: &str) -> (Option<String>, String) {
 /// Calls [`split_frontmatter`] to extract the YAML block, then interprets
 /// it into a [`FrontMatter`] struct. If no frontmatter is present or parsing
 /// fails, falls back gracefully using `title_hint` and `fallback_date`.
+#[allow(clippy::option_if_let_else)]
 #[must_use]
 pub fn parse_frontmatter(
     raw: &str,
@@ -171,9 +172,9 @@ pub fn parse_frontmatter(
     strict: bool,
 ) -> (FrontMatter, String) {
     let (yaml_opt, body) = split_frontmatter(raw);
+    let yaml_opt = yaml_opt.filter(|y| !y.trim().is_empty());
 
     let fm = match yaml_opt {
-        // No frontmatter block at all — derive title from heading or hint.
         None => FrontMatter {
             title: resolve_title(None, &body, title_hint),
             date: fallback_date,
@@ -181,14 +182,6 @@ pub fn parse_frontmatter(
             description: None,
             feed: None,
         },
-        Some(yaml) if yaml.trim().is_empty() => FrontMatter {
-            title: resolve_title(None, &body, title_hint),
-            date: fallback_date,
-            author: None,
-            description: None,
-            feed: None,
-        },
-
         Some(yaml) => match yaml_serde::from_str::<RawFrontmatter>(&yaml) {
             Ok(raw_fm) => FrontMatter {
                 title: resolve_title(raw_fm.title, &body, title_hint),
