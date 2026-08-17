@@ -31,6 +31,18 @@ and this project adheres to
 
 - Fuzzing with `cargo-fuzz` and `arbitrary`
 
+Run a target:
+
+```bash
+cargo fuzz run fuzz_parse_frontmatter
+cargo fuzz run fuzz_make_urls_absolute
+cargo fuzz run fuzz_build_feed
+```
+
+Each runs until it finds a panic or you stop it with `Ctrl-C`. Corpus inputs
+that find new coverage are saved in `fuzz/corpus/<target>/`. If a crash is
+found, it's saved in `fuzz/artifacts/<target>/`.
+
 ## [1.10.0] - 2026-08-11
 
 ### Fixed
