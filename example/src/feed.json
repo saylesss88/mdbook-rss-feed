@@ -1,0 +1,22 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Example",
+  "home_page_url": "https://example.com/",
+  "feed_url": "https://example.com/feed.json",
+  "description": "Description",
+  "next_url": "https://example.com/feed2.json",
+  "items": [
+    {
+      "id": "https://example.com/chapter_1.html",
+      "url": "https://example.com/chapter_1.html",
+      "title": "Chapter 1",
+      "content_html": "<ul>\n<li><a href=\"https://example.com/rss.xml\">RSS</a></li>\n<li><a href=\"https://example.com/atom.xml\">Atom</a></li>\n<li><a href=\"https://example.com/feed.json\">JSON</a></li>\n</ul>\n"
+    },
+    {
+      "id": "https://example.com/chapter_2.html",
+      "url": "https://example.com/chapter_2.html",
+      "title": "Chapter 2",
+      "content_html": "<h1>Chapter 2</h1>\n"
+    }
+  ]
+}

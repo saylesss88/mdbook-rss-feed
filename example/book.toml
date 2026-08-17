@@ -1,0 +1,11 @@
+[book]
+title = "Example"
+authors = ["saylesss88"]
+language = "en"
+
+[preprocessor.rss-feed]
+paginated = true
+max-items = 2
+atom = true
+json-feed = true
+strict = true
