@@ -1,3 +1,12 @@
+//! Fuzz target for the full article → feed pipeline.
+//!
+//! Constructs an `Article` from arbitrary input and runs it through
+//! `build_feed_from_articles`. The goal is to confirm the entire pipeline
+//! never panics on arbitrary content.
+//!
+//! Run with:
+//!   cargo fuzz run fuzz_build_feed
+
 #![no_main]
 
 use arbitrary::Arbitrary;

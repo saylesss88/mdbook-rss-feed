@@ -26,3 +26,4 @@ pub use feed::{
 pub use frontmatter::{FeedVisibility, FrontMatter, first_h1, parse_frontmatter, resolve_title};
 #[cfg(feature = "json-feed")]
 pub use json_feed::{JsonFeed, JsonFeedItem, rss_to_json_feed};
+pub use preview::make_urls_absolute;

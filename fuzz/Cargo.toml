@@ -34,3 +34,10 @@ path = "fuzz_targets/fuzz_build_feed.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "fuzz_make_urls_absolute"
+path = "fuzz_targets/fuzz_make_urls_absolute.rs"
+test = false
+doc = false
+bench = false
