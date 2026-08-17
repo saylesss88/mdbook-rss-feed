@@ -6,13 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
-## [1.10.0] - 2026-08-11
-
 ## [Unreleased]
+
+## [1.10.1] - 2026-08-17
+
+
+### Changed
+- `parse_frontmatter` is now split into `split_frontmatter` (delimiter
+  detection) and `parse_frontmatter` (semantic interpretation), making each
+  function independently testable and the logic easier to follow.
+- Empty YAML blocks (opening and closing `---` with nothing between) are
+  now normalized to `None` before matching, removing a redundant arm from
+  the match.
 
 ### Fixed
 
+- `utf8_prefix` in `preview.rs` panicked on multibyte UTF-8 characters
+  (e.g. `ç`, emoji, CJK) when slicing preview content. The byte index
+  calculation used `byte_idx + 1` which assumed single-byte characters.
+  Replaced with `char_indices().nth(max_chars)` which always lands on a
+  valid char boundary. Found by `cargo fuzz`.
+
+### Added
+
+- Fuzzing with `cargo-fuzz` and `arbitrary`
+
+## [1.10.0] - 2026-08-11
+
+### Fixed
 
 - Atom entries with no body content no longer emit an empty
   `<content type="html"></content>` element, which was causing validation
