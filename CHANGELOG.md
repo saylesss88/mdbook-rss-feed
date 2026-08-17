@@ -10,24 +10,42 @@ and this project adheres to
 
 ## [1.10.1] - 2026-08-17
 
-
 ### Changed
+
 - `parse_frontmatter` is now split into `split_frontmatter` (delimiter
   detection) and `parse_frontmatter` (semantic interpretation), making each
   function independently testable and the logic easier to follow.
-- Empty YAML blocks (opening and closing `---` with nothing between) are
-  now normalized to `None` before matching, removing a redundant arm from
-  the match.
+- Empty YAML blocks (opening and closing `---` with nothing between) are now
+  normalized to `None` before matching, removing a redundant arm from the match.
 
 ### Fixed
 
-- `utf8_prefix` in `preview.rs` panicked on multibyte UTF-8 characters
-  (e.g. `ç`, emoji, CJK) when slicing preview content. The byte index
-  calculation used `byte_idx + 1` which assumed single-byte characters.
-  Replaced with `char_indices().nth(max_chars)` which always lands on a
-  valid char boundary. Found by `cargo fuzz`.
+- [Issue atom or json-feed without feature and with strict should fail #12](https://github.com/saylesss88/mdbook-rss-feed/issues/12).
+  - Now when you set `json-feed = true`/`atom = true` without adding the
+    features it fails the build with this output:
+
+```sh
+ INFO Book building has started
+mdbook-rss-feed: collected 8 chapter(s) from book (default-behavior: IncludeAll)
+Writing RSS page /home/jr/privacy-book/src/rss.xml (259709 bytes)
+Writing RSS page /home/jr/privacy-book/src/rss2.xml (22852 bytes)
+error: mdbook-rss-feed: `json-feed = true` is set but this binary was compiled without the `json-feed` feature. Reinstall with: cargo install mdbook-rss-feed --features json-feed
+ERROR The "rss-feed" preprocessor exited unsuccessfully with exit status: 1 status
+```
+
+- [Issue Outputs RSS but not Atom or JSON #11](https://github.com/saylesss88/mdbook-rss-feed/issues/11).
+  Paginated output now displays Writing JSON/Atom page in the output.
+
+- `utf8_prefix` in `preview.rs` panicked on multibyte UTF-8 characters (e.g.
+  `ç`, emoji, CJK) when slicing preview content. The byte index calculation used
+  `byte_idx + 1` which assumed single-byte characters. Replaced with
+  `char_indices().nth(max_chars)` which always lands on a valid char boundary.
+  Found by `cargo fuzz`.
 
 ### Added
+
+- Merged
+  [pineage404 PR Add example usage #13](https://github.com/saylesss88/mdbook-rss-feed/pull/13)
 
 - Fuzzing with `cargo-fuzz` and `arbitrary`
 
@@ -51,8 +69,8 @@ found, it's saved in `fuzz/artifacts/<target>/`.
   `<content type="html"></content>` element, which was causing validation
   warnings.
 - Atom feed-level `<updated>` no longer falls back to the Unix epoch
-  (`1970-01-01`) when no entries have dates, which was flagged as an
-  implausible date by the W3C validator. Falls back to `2000-01-01` instead.
+  (`1970-01-01`) when no entries have dates, which was flagged as an implausible
+  date by the W3C validator. Falls back to `2000-01-01` instead.
 
 - Atom chapters with no date in the frontmatter now fallback to a plausible date
 
