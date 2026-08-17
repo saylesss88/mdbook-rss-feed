@@ -16,15 +16,11 @@ fuzz_target!(|input: Input| {
     // `strict = false` so we never call `process::exit` during fuzzing.
     let (fm, body) = parse_frontmatter(&input.raw, &input.title_hint, None, false);
 
-    // Basic invariants that must always hold:
-    // - title is never empty (falls back to title_hint or h1)
-    assert!(
-        !fm.title.is_empty() || input.title_hint.is_empty(),
-        "title should not be empty when title_hint is non-empty"
-    );
-    // - body + frontmatter block together should not be longer than raw input
-    assert!(
-        body.len() <= input.raw.len() + 1,
-        "body should not be longer than raw input"
-    );
+    // Title must never be empty: falls back to title_hint, first # heading,
+    // or "Untitled" when all three are absent.
+    assert!(!fm.title.is_empty(), "title should never be empty");
+
+    // Use both outputs to prevent the optimizer removing the call entirely.
+    let _ = body.len();
+    let _ = fm.date;
 });

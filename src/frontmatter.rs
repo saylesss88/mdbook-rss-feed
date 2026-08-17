@@ -100,28 +100,24 @@ pub fn first_h1(content: &str) -> Option<String> {
 ///   3. `fallback` (chapter name from SUMMARY.md / file stem)
 #[must_use]
 pub fn resolve_title(fm_title: Option<String>, body: &str, fallback: &str) -> String {
-    fm_title
+    let title = fm_title
         .filter(|t| !t.is_empty())
         .or_else(|| first_h1(body))
-        .unwrap_or_else(|| fallback.to_string())
+        .unwrap_or_else(|| fallback.to_string());
+
+    if title.is_empty() {
+        "Untitled".to_string()
+    } else {
+        title
+    }
 }
 
-/// Parse a YAML frontmatter block and body from raw Markdown.
+/// Split raw markdown into an optional YAML frontmatter block and a body.
 ///
-/// Resolution priority for `title`:
-///   1. `title:` in YAML frontmatter
-///   2. First `# Heading` in the body
-///   3. `title_hint` (chapter name from SUMMARY.md or file stem)
-///
-/// A warning is printed to stderr when YAML is present but fails to parse.
-/// If `strict` is `true`, the process exits with code 1 instead of warning.
-#[must_use]
-pub fn parse_frontmatter(
-    raw: &str,
-    title_hint: &str,
-    fallback_date: Option<DateTime<Utc>>,
-    strict: bool,
-) -> (FrontMatter, String) {
+/// Returns `(Some(yaml), body)` when a valid frontmatter block is found
+/// (opened and closed with `---` delimiters), or `(None, body)` when there
+/// is no frontmatter or the opening `---` was never closed.
+fn split_frontmatter(raw: &str) -> (Option<String>, String) {
     let mut lines = raw.lines();
 
     // Only treat the file as having frontmatter if the very first line is `---`.
@@ -129,24 +125,14 @@ pub fn parse_frontmatter(
     // for the closing delimiter.
     let first = lines.next().unwrap_or("");
     if first.trim() != "---" {
-        // No frontmatter — put the first line back and treat everything as body.
+        // No frontmatter, put the first line back and treat everything as body.
         let body = std::iter::once(first)
             .chain(lines)
             .collect::<Vec<_>>()
             .join("\n")
             + "\n";
-        return (
-            FrontMatter {
-                title: resolve_title(None, &body, title_hint),
-                date: fallback_date,
-                author: None,
-                description: None,
-                feed: None,
-            },
-            body,
-        );
+        return (None, body);
     }
-
     // First line was `---` read YAML until closing `---`
     let mut yaml = String::new();
     let mut closed = false;
@@ -158,7 +144,6 @@ pub fn parse_frontmatter(
         yaml.push_str(line);
         yaml.push('\n');
     }
-
     // If we never found the closing `---`, treat the whole file as body.
     if !closed {
         let body = std::iter::once("---")
@@ -166,31 +151,45 @@ pub fn parse_frontmatter(
             .collect::<Vec<_>>()
             .join("\n")
             + "\n";
-        return (
-            FrontMatter {
-                title: resolve_title(None, &body, title_hint),
-                date: fallback_date,
-                author: None,
-                description: None,
-                feed: None,
-            },
-            body,
-        );
+        return (None, body);
     }
 
     let body = lines.collect::<Vec<_>>().join("\n") + "\n";
+    (Some(yaml), body)
+}
 
-    let fm = if yaml.trim().is_empty() {
+/// Parse frontmatter and body from raw Markdown.
+///
+/// Calls [`split_frontmatter`] to extract the YAML block, then interprets
+/// it into a [`FrontMatter`] struct. If no frontmatter is present or parsing
+/// fails, falls back gracefully using `title_hint` and `fallback_date`.
+#[must_use]
+pub fn parse_frontmatter(
+    raw: &str,
+    title_hint: &str,
+    fallback_date: Option<DateTime<Utc>>,
+    strict: bool,
+) -> (FrontMatter, String) {
+    let (yaml_opt, body) = split_frontmatter(raw);
+
+    let fm = match yaml_opt {
         // No frontmatter block at all — derive title from heading or hint.
-        FrontMatter {
+        None => FrontMatter {
             title: resolve_title(None, &body, title_hint),
             date: fallback_date,
             author: None,
             description: None,
             feed: None,
-        }
-    } else {
-        match yaml_serde::from_str::<RawFrontmatter>(&yaml) {
+        },
+        Some(yaml) if yaml.trim().is_empty() => FrontMatter {
+            title: resolve_title(None, &body, title_hint),
+            date: fallback_date,
+            author: None,
+            description: None,
+            feed: None,
+        },
+
+        Some(yaml) => match yaml_serde::from_str::<RawFrontmatter>(&yaml) {
             Ok(raw_fm) => FrontMatter {
                 title: resolve_title(raw_fm.title, &body, title_hint),
                 date: raw_fm.date.or(fallback_date),
@@ -216,7 +215,7 @@ pub fn parse_frontmatter(
                     feed: None,
                 }
             }
-        }
+        },
     };
 
     (fm, body)
@@ -407,7 +406,7 @@ mod tests {
         let raw = "---\ntitle: [unclosed\n---\n\n# Heading\n\nContent.";
         let (fm, body) = parse_frontmatter(raw, "fallback", None, false);
         // Title falls back to h1 or hint.
-        assert!(!fm.title.is_empty());
+        assert_ne!(fm.title, "");
         assert!(body.contains("Content."));
     }
 
