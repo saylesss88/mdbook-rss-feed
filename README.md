@@ -71,7 +71,7 @@ renderers = ["html"]
 # paginated = true                   # split into rss.xml, rss2.xml, ... 
 # max-items = 4                      # items per page when paginated
 # default-behavior = "exclude-all"   # opt-in mode: only include chapters marked feed: include
-# strict = true
+# strict = true                      # fail the build on a frontmatter parse error
 
 [output.html]
 site-url = "https://your-user.github.io/"
