@@ -121,6 +121,7 @@ pub fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize
 ///
 /// Rewrites `src="..."` and `href="..."` attributes. Skips URLs that are
 /// already absolute (`http://`, `https://`, `//`) or fragment-only (`#`).
+#[must_use]
 pub fn make_urls_absolute(html: &str, base_url: &str, page_url: Option<&str>) -> String {
     let base = base_url.trim_end_matches('/');
 
