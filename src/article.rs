@@ -73,7 +73,9 @@ fn walk_book_items(items: &Value, out: &mut Vec<Article>, strict: bool) {
             .to_string();
 
         if path.is_empty() {
-            // Draft chapter with no source (skip).
+            if let Some(sub) = chapter.get("sub_items") {
+                walk_book_items(sub, out, strict);
+            }
             continue;
         }
 
@@ -463,5 +465,40 @@ mod tests {
         let path = PathBuf::from("/tmp/surely_does_not_exist_mdbook_rss_feed_test");
         let result = collect_articles(&path, false);
         assert!(result.is_err());
+    }
+
+    /// Regression test: a section-header chapter (`[English]()` in SUMMARY.md)
+    /// has no source path.  Its children must still be collected.
+    #[test]
+    fn articles_from_book_json_draft_section_header_does_not_drop_children() {
+        let book = json!({
+            "items": [
+                chapter_item("Blog", "# Blog", "README.md"),
+                {
+                    "Chapter": {
+                        "name": "English",
+                        "content": "",
+                        "source_path": null,
+                        "path": null,
+                        "sub_items": [
+                            chapter_item(
+                                "Nix : Devbox to Multiverse",
+                                "---\ntitle: Nix : Devbox to Multiverse\ndate: 2024-03-01\n---\nContent.",
+                                "en/devbox_to_multiverse.md"
+                            )
+                        ]
+                    }
+                }
+            ]
+        });
+        let articles = articles_from_book_json(&book, false);
+        assert_eq!(
+            articles.len(),
+            2,
+            "child of draft section header must be collected"
+        );
+        let paths: Vec<&str> = articles.iter().map(|a| a.path.as_str()).collect();
+        assert!(paths.contains(&"README.md"));
+        assert!(paths.contains(&"en/devbox_to_multiverse.md"));
     }
 }
