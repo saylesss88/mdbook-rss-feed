@@ -8,6 +8,18 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.10.2] - 2026-08-24
+
+### Fixed
+
+- [Issue #14](https://github.com/saylesss88/mdbook-rss-feed/issues/14), children
+  were silently dropped on empty draft chapters. Now, when `path.is_empty()`,
+  it will still recurse into `sub_items` _before_ the `continue`.
+
+### Added
+
+- Regression test for `Issue #14`.
+
 ## [1.10.1] - 2026-08-17
 
 ### Changed
