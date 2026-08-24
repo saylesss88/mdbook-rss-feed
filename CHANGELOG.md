@@ -20,6 +20,10 @@ and this project adheres to
 
 - Regression test for `Issue #14`.
 
+### Changed
+
+- Update dependencies
+
 ## [1.10.1] - 2026-08-17
 
 ### Changed
