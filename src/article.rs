@@ -1,15 +1,4 @@
 //! Scanning an mdBook `src` directory into [`Article`]s.
-//!
-//! Two collection strategies are provided:
-//!
-//! - [`articles_from_book_json`]: reads the already-processed book object
-//!   that mdBook passes to preprocessors on stdin. Chapter content has
-//!   `{{#include}}` directives already expanded, and only chapters listed in
-//!   `SUMMARY.md` are present. **Prefer this path.**
-//!
-//! - [`collect_articles`]: walks the `src/` directory on disk. Kept for
-//!   standalone/testing use. Does **not** expand `{{#include}}` directives
-//!   and does **not** filter to `SUMMARY.md` entries.
 
 use std::{fs, path::Path, time::SystemTime};
 
@@ -37,8 +26,6 @@ pub struct Article {
     /// Path relative to the `src/` root (e.g. `"changelog.md"`)
     pub path: String,
 }
-
-// ── Book JSON path ────────────────────────────────────────────────────────────
 
 /// Recursively walk a `BookItem` JSON array and collect chapters.
 fn walk_book_items(items: &Value, out: &mut Vec<Article>, strict: bool) {
@@ -115,8 +102,6 @@ pub fn articles_from_book_json(book_json: &Value, strict: bool) -> Vec<Article> 
     articles
 }
 
-// ── Filesystem path (legacy / standalone) ────────────────────────────────────
-
 /// Parses a markdown file and returns an [`Article`].
 ///
 /// # Errors
@@ -150,12 +135,6 @@ pub fn parse_markdown_file(root: &Path, path: &Path, strict: bool) -> Result<Art
 }
 
 /// Collect all Markdown chapters under `src_dir`.
-///
-/// Walks the directory tree, skipping `SUMMARY.md` and non-Markdown files,
-/// parses each chapter into an [`Article`], then sorts the list newest →
-/// oldest based on frontmatter `date` (falling back to file modification
-/// time). Files that fail to parse are skipped rather than aborting the
-/// whole scan.
 ///
 /// # Errors
 /// Returns `Err` if `src_dir` doesn't exist or can't be walked.
@@ -207,8 +186,6 @@ mod tests {
     use serde_json::json;
     use std::fs;
     use std::path::PathBuf;
-
-    // ── articles_from_book_json ───────────────────────────────────────────────
 
     fn chapter_item(name: &str, content: &str, path: &str) -> serde_json::Value {
         json!({
@@ -354,8 +331,6 @@ mod tests {
         assert_eq!(articles[0].path, "actual/source.md");
     }
 
-    // ── parse_markdown_file ───────────────────────────────────────────────────
-
     fn write_temp_file(dir: &std::path::Path, name: &str, content: &str) -> PathBuf {
         let path = dir.join(name);
         fs::write(&path, content).unwrap();
@@ -404,8 +379,6 @@ mod tests {
         let result = parse_markdown_file(dir.path(), &missing, false);
         assert!(result.is_err());
     }
-
-    // ── collect_articles ─────────────────────────────────────────────────────
 
     #[test]
     fn collect_articles_walks_directory() {

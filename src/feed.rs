@@ -53,10 +53,6 @@ impl FromStr for DefaultBehavior {
 }
 
 /// Options controlling how a feed is built.
-///
-/// Grouping these avoids a long positional-argument list at the call site
-/// (see `build_feed`) and makes it cheap to add new options later without
-/// breaking every caller.
 #[derive(Debug, Clone)]
 pub struct FeedOptions<'a> {
     pub title: &'a str,
@@ -116,9 +112,9 @@ fn rss_filename(page_idx: usize) -> String {
 
 /// Build a single [`Channel`] from a slice of items.
 ///
-/// - `rel="self"` — the canonical URL of this page
-/// - `rel="prev"` — the newer page, when this is not the first page
-/// - `rel="next"` — the older page, when this is not the last page
+/// - `rel="self"`, the canonical URL of this page
+/// - `rel="prev"`, the newer page, when this is not the first page
+/// - `rel="next"`, the older page, when this is not the last page
 fn build_channel(
     title: &str,
     base_url: &str,
@@ -266,8 +262,6 @@ mod tests {
     use crate::article::Article;
     use crate::frontmatter::{FeedVisibility, FrontMatter};
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
     fn make_article(
         title: &str,
         path: &str,
@@ -306,8 +300,6 @@ mod tests {
         }
     }
 
-    // ── DefaultBehavior ───────────────────────────────────────────────────────
-
     #[test]
     fn default_behavior_parses_exclude_all() {
         let b: DefaultBehavior = "exclude-all".parse().unwrap();
@@ -331,8 +323,6 @@ mod tests {
         assert_eq!(DefaultBehavior::default(), DefaultBehavior::IncludeAll);
     }
 
-    // ── article_link ─────────────────────────────────────────────────────────
-
     #[test]
     fn article_link_converts_md_to_html() {
         let link = article_link("https://example.com", "posts/hello.md");
@@ -351,8 +341,6 @@ mod tests {
         assert_eq!(link, "https://example.com/posts/windows.html");
     }
 
-    // ── rss_filename ─────────────────────────────────────────────────────────
-
     #[test]
     fn rss_filename_page_zero_is_rss_xml() {
         assert_eq!(rss_filename(0), "rss.xml");
@@ -364,8 +352,6 @@ mod tests {
         assert_eq!(rss_filename(2), "rss3.xml");
         assert_eq!(rss_filename(9), "rss10.xml");
     }
-
-    // ── article_is_included ───────────────────────────────────────────────────
 
     #[test]
     fn include_all_includes_article_with_no_override() {
@@ -396,8 +382,6 @@ mod tests {
         let a = make_article("Test", "test.md", None, Some(FeedVisibility::Include));
         assert!(article_is_included(&a, &DefaultBehavior::IncludeAll));
     }
-
-    // ── build_feed_from_articles ──────────────────────────────────────────────
 
     #[test]
     fn build_feed_from_articles_basic() {
@@ -444,7 +428,7 @@ mod tests {
 
     #[test]
     fn build_feed_from_articles_pub_date_zero_padded() {
-        // Day 5 must be "05", not "5" — RFC 2822 requires zero-padding.
+        // Day 5 must be "05", not "5": RFC 2822 requires zero-padding.
         let articles = vec![make_article(
             "Post",
             "post.md",
@@ -504,8 +488,6 @@ mod tests {
             "double slash in link: {link}"
         );
     }
-
-    // ── pagination ────────────────────────────────────────────────────────────
 
     #[test]
     fn pagination_disabled_all_items_in_one_page() {

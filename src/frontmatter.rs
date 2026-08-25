@@ -5,13 +5,6 @@ use serde::{Deserialize, Deserializer};
 
 /// Per-chapter feed inclusion control, set via the `feed` frontmatter key.
 ///
-/// ```yaml
-/// ---
-/// feed: include   # always include this chapter regardless of default-behavior
-/// feed: exclude   # always exclude this chapter regardless of default-behavior
-/// ---
-/// ```
-///
 /// When absent, the chapter follows the book-level `default-behavior` setting
 /// (`include-all` by default).
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
@@ -115,8 +108,8 @@ pub fn resolve_title(fm_title: Option<String>, body: &str, fallback: &str) -> St
 /// Split raw markdown into an optional YAML frontmatter block and a body.
 ///
 /// Returns `(Some(yaml), body)` when a valid frontmatter block is found
-/// (opened and closed with `---` delimiters), or `(None, body)` when there
-/// is no frontmatter or the opening `---` was never closed.
+/// , or `(None, body)` when there is no frontmatter or the opening `---`
+///  was never closed.
 fn split_frontmatter(raw: &str) -> (Option<String>, String) {
     let mut lines = raw.lines();
 
@@ -219,8 +212,6 @@ pub fn parse_frontmatter(
 mod tests {
     use super::*;
 
-    // ── first_h1 ─────────────────────────────────────────────────────────────
-
     #[test]
     fn first_h1_finds_top_level_heading() {
         let md = "# My Title\n\nSome content.";
@@ -250,8 +241,6 @@ mod tests {
         assert_eq!(first_h1(""), None);
     }
 
-    // ── resolve_title ─────────────────────────────────────────────────────────
-
     #[test]
     fn resolve_title_prefers_frontmatter_title() {
         let body = "# Heading Title\n\nContent.";
@@ -279,8 +268,6 @@ mod tests {
         let result = resolve_title(Some(String::new()), body, "fallback");
         assert_eq!(result, "Real Title");
     }
-
-    // ── parse_frontmatter ─────────────────────────────────────────────────────
 
     #[test]
     fn parse_frontmatter_no_frontmatter_returns_whole_body() {
@@ -402,8 +389,6 @@ mod tests {
         assert_ne!(fm.title, "");
         assert!(body.contains("Content."));
     }
-
-    // ── deserialize_date ─────────────────────────────────────────────────────
 
     #[test]
     fn deserialize_date_accepts_rfc3339() {

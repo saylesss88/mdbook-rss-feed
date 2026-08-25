@@ -28,10 +28,6 @@ pub fn markdown_to_html(md: &str) -> String {
 /// Strip obvious leading boilerplate (TOCs, details, long definition blocks)
 /// so previews tend to start at the main intro text instead of metadata or
 /// navigation.
-///
-/// Heuristic: find the first heading, then return everything after the
-/// first blank line that follows it. If no heading is found, the input is
-/// returned unchanged.
 pub fn strip_leading_boilerplate(md: &str) -> &str {
     let mut seen_heading = false;
     let mut byte_idx = 0;
@@ -80,11 +76,6 @@ pub fn utf8_prefix(s: &str, max_chars: usize) -> &str {
 }
 
 /// Return the first few `<p>` blocks from an HTML fragment.
-///
-/// Used to build the `<description>` preview for each item. At most
-/// `max_paragraphs` paragraphs are included, and the result is truncated to
-/// `max_chars` characters (UTF-8 safe). If no `<p>` is found, the original
-/// HTML is returned unchanged.
 pub fn html_first_paragraphs(html: &str, max_paragraphs: usize, max_chars: usize) -> String {
     let mut out = String::new();
     let mut start = 0;
@@ -187,10 +178,6 @@ pub fn make_urls_absolute(html: &str, base_url: &str, page_url: Option<&str>) ->
 /// Choose and render a preview source for an article body.
 ///
 /// When `full_preview` is `true`, the entire body is rendered to HTML.
-/// Otherwise a hybrid heuristic picks between the body and the frontmatter
-/// `description` (preferring the body once it's long enough), strips
-/// leading boilerplate, slices it down before HTML conversion, and finally
-/// keeps only the first few rendered paragraphs.
 pub fn render_preview(
     content: &str,
     description: Option<&str>,

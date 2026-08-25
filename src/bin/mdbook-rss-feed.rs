@@ -279,22 +279,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if handle_mdbook_hooks(&args) {
         return Ok(());
     }
-
-    // 1. READ STDIN
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
 
-    // 2. PARSE JSON
     let input_array: Vec<Value> = serde_json::from_str(&input)?;
     let [context, book] = input_array.as_slice() else {
         return Err("expected mdBook to send a [context, book] pair on stdin".into());
     };
 
-    // 3. EXTRACT CONFIG & BOOK
     let config = FeedConfig::from_json(context);
 
-    // 4. COLLECT ARTICLES FROM THE BOOK JSON
-    // This uses the already-processed book rather than walking the fs
     let articles = articles_from_book_json(book, config.strict);
 
     eprintln!(
@@ -303,14 +297,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.default_behavior,
     );
 
-    // 5. BUILD FEED
     let result = build_feed_from_articles(articles, &config.feed_options());
 
     write_rss_pages(&config, &result.pages)?;
     write_json_pages(&config, &result.pages)?;
     write_atom_pages(&config, &result.pages)?;
 
-    // 6. FINAL ECHO TO MDBOOK
+    // FINAL ECHO TO MDBOOK
     io::stderr().flush()?;
     println!("{}", serde_json::to_string(book)?);
     Ok(())
