@@ -40,19 +40,6 @@ cargo install mdbook-rss-feed
 cargo install mdbook-rss-feed --features atom,json-feed
 ```
 
-**Arch Linux AUR**
-
-```bash
-paru -S mdbook-rss-feed
-```
-
-**NixOS**
-
-```bash
-# Try it out with
-nix-shell -p mdbook-rss-feed
-```
-
 | Feature | Enables |
 |---|---|
 | `atom` | `atom.xml` output |
@@ -61,6 +48,27 @@ nix-shell -p mdbook-rss-feed
 If you set `atom = true` or `json-feed = true` in `book.toml` without
 installing the matching feature, the preprocessor prints a warning to stderr
 and skips that output rather than failing the build.
+
+
+**Arch Linux AUR**
+
+```bash
+paru -S mdbook-rss-feed
+```
+
+**NixOS**
+
+Thanks to [pinage404](https://github.com/pinage404) for adding `mdbook-rss-feed`
+to nixpkgs.
+
+```bash
+# Try it out with
+nix-shell -p mdbook-rss-feed
+```
+
+```nix
+environment.systemPackages = [ pkgs.mdbook-rss-feed ]
+```
 
 Version check:
 
