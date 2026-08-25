@@ -1,5 +1,7 @@
 # mdbook-rss-feed
 
+[![Nix Flake](https://img.shields.io/badge/Nix_Flake-Geared-dddd00?logo=nixos&logoColor=white)](https://nixos.org/manual/nix/stable/command-ref/new-cli/nix3-flake.html)
+
 An mdBook preprocessor that generates valid RSS 2.0, Atom 1.0, and JSON Feed 1.1
 feeds with rich HTML previews, optional full-content entries, and pagination
 support. Perfect for blogs, docs sites, or any mdBook you want to publish a feed
@@ -36,7 +38,19 @@ cargo install mdbook-rss-feed
 
 # RSS + Atom + JSON Feed
 cargo install mdbook-rss-feed --features atom,json-feed
+```
 
+**Arch Linux AUR**
+
+```bash
+paru -S mdbook-rss-feed
+```
+
+**NixOS**
+
+```bash
+# Try it out with
+nix-shell -p mdbook-rss-feed
 ```
 
 | Feature | Enables |
