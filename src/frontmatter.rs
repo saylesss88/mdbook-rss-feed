@@ -27,6 +27,10 @@ where
     if let Ok(dt) = DateTime::parse_from_rfc3339(&date_str) {
         return Ok(Some(dt.with_timezone(&Utc)));
     }
+    // Handle `date --rfc-3339=second` output format (space instead of T separator).
+    if let Ok(dt) = DateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S%z") {
+        return Ok(Some(dt.with_timezone(&Utc)));
+    }
     if let Ok(nd) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
         // NaiveDate::and_hms_opt(0, 0, 0) only fails for an invalid hms,
         // which 0,0,0 never is, so this expect documents an invariant
