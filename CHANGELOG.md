@@ -12,9 +12,17 @@ and this project adheres to
 
 ### Fixed
 
+- [Issue #15](https://github.com/saylesss88/mdbook-rss-feed/issues/15), -
+  `date:` values using a space separator instead of `T` (e.g.
+  `2026-08-25 12:56:03+02:00`, the format output by `date --rfc-3339=second`)
+  are now parsed correctly. Previously these fell back to date-only parsing,
+  losing the time component and producing incorrect feed ordering. This could
+  cause federation tools (e.g. Bridgy Fed) to repost old content or miss new
+  posts entirely.
+
 - [Issue #14](https://github.com/saylesss88/mdbook-rss-feed/issues/14), children
-  were silently dropped on empty draft chapters. Now, when `path.is_empty()`,
-  it will still recurse into `sub_items` _before_ the `continue`.
+  were silently dropped on empty draft chapters. Now, when `path.is_empty()`, it
+  will still recurse into `sub_items` _before_ the `continue`.
 
 ### Added
 
