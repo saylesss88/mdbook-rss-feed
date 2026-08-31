@@ -8,6 +8,23 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- **Tag/category support** add `tags` to chapter frontmatter to populate
+  `<category>` elements in RSS and Atom, and the `tags` array in JSON Feed 1.1:
+
+```yaml
+  ---
+  title: My Post
+  date: 2026-08-01
+  tags:
+    - nix
+    - nixos
+  ---
+```
+
+- Atom & RSS both use `<category>`, while JSON feed uses `"tags"` in the output.
+
 ## [1.10.2] - 2026-08-24
 
 ### Fixed
