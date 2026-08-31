@@ -170,7 +170,12 @@ fn write_json_pages(
         } else {
             None
         };
-        let json_feed = rss_to_json_feed(&page.channel, Some(&self_url), next_url.as_deref());
+        let json_feed = rss_to_json_feed(
+            &page.channel,
+            Some(&self_url),
+            next_url.as_deref(),
+            &page.item_tags,
+        );
         let json_path = config.src_dir.join(if page_idx == 0 {
             "feed.json".to_string()
         } else {
@@ -243,6 +248,7 @@ fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) ->
             next_url.as_deref(),
             prev_url.as_deref(),
             &config.authors,
+            &page.item_tags,
         );
         let atom_path = config.src_dir.join(if page_idx == 0 {
             "atom.xml".to_string()

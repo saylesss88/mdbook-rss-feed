@@ -38,6 +38,9 @@ pub struct JsonFeedItem {
     /// Allows a simple string or a richer author object later.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<JsonValue>,
+    /// Tags/categories for this item, per JSON Feed 1.1 spec.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
 }
 
 /// Stable per-item id: prefer guid, then link, then title.
@@ -54,11 +57,13 @@ pub fn rss_to_json_feed(
     channel: &Channel,
     feed_url: Option<&str>,
     next_url: Option<&str>,
+    item_tags: &[Vec<String>],
 ) -> JsonFeed {
     let items: Vec<JsonFeedItem> = channel
         .items()
         .iter()
-        .map(|item| JsonFeedItem {
+        .enumerate()
+        .map(|(i, item)| JsonFeedItem {
             id: item_id(item),
             url: item.link().map(str::to_string),
             title: item.title().map(str::to_string),
@@ -68,6 +73,7 @@ pub fn rss_to_json_feed(
                 .and_then(|d| DateTime::parse_from_rfc2822(d).ok())
                 .map(|dt| dt.to_rfc3339()),
             author: item.author().map(|a| serde_json::json!({ "name": a })),
+            tags: item_tags.get(i).cloned().unwrap_or_default(),
         })
         .collect();
 

@@ -20,6 +20,8 @@ pub struct FeedPage {
     /// e.g. "rss.xml", "rss2.xml"
     pub filename: String,
     pub channel: Channel,
+    // Per-item tags, parallel to `channel.items()`.
+    pub item_tags: Vec<Vec<String>>,
 }
 
 /// Result of building feeds for a book.
@@ -162,7 +164,12 @@ fn build_channel(
 }
 
 /// Split `items` into one or more [`FeedPage`]s according to `opts`.
-fn paginate(items: &[Item], opts: &FeedOptions<'_>, base_url: &str) -> Vec<FeedPage> {
+fn paginate(
+    items: &[Item],
+    tags: &[Vec<String>],
+    opts: &FeedOptions<'_>,
+    base_url: &str,
+) -> Vec<FeedPage> {
     let mut pages: Vec<FeedPage> = Vec::new();
 
     let should_paginate = opts.paginated && opts.max_items > 0 && items.len() > opts.max_items;
@@ -171,6 +178,7 @@ fn paginate(items: &[Item], opts: &FeedOptions<'_>, base_url: &str) -> Vec<FeedP
         return vec![FeedPage {
             filename: "rss.xml".to_string(),
             channel,
+            item_tags: tags.to_vec(),
         }];
     }
 
@@ -189,13 +197,18 @@ fn paginate(items: &[Item], opts: &FeedOptions<'_>, base_url: &str) -> Vec<FeedP
         pages.push(FeedPage {
             filename: rss_filename(page_idx),
             channel,
+            item_tags: tags[start..end].to_vec(),
         });
     }
     pages
 }
 
 /// Convert a list of [`Article`]s into RSS [`Item`]s, applying filtering.
-fn articles_to_items(articles: Vec<Article>, opts: &FeedOptions<'_>, base_url: &str) -> Vec<Item> {
+fn articles_to_items(
+    articles: Vec<Article>,
+    opts: &FeedOptions<'_>,
+    base_url: &str,
+) -> (Vec<Item>, Vec<Vec<String>>) {
     articles
         .into_iter()
         .filter(|a| article_is_included(a, &opts.default_behavior))
@@ -227,17 +240,31 @@ fn articles_to_items(articles: Vec<Article>, opts: &FeedOptions<'_>, base_url: &
             {
                 item.author(Some(format!("{email} ({author})")));
             }
-            item.build()
+
+            if !article.fm.tags.is_empty() {
+                item.categories(
+                    article
+                        .fm
+                        .tags
+                        .iter()
+                        .map(|t| rss::Category {
+                            name: t.clone(),
+                            domain: None,
+                        })
+                        .collect::<Vec<_>>(),
+                );
+            }
+            (item.build(), article.fm.tags)
         })
-        .collect()
+        .unzip()
 }
 
 #[must_use]
 pub fn build_feed_from_articles(articles: Vec<Article>, opts: &FeedOptions<'_>) -> BuildResult {
     let base_url = opts.site_url.trim_end_matches('/');
-    let items = articles_to_items(articles, opts, base_url);
+    let (items, tags) = articles_to_items(articles, opts, base_url);
     BuildResult {
-        pages: paginate(&items, opts, base_url),
+        pages: paginate(&items, &tags, opts, base_url),
     }
 }
 
@@ -280,6 +307,7 @@ mod tests {
                 author: None,
                 description: None,
                 feed,
+                tags: Vec::new(),
             },
             content: format!("# {title}\n\nSome content for {title}."),
             path: path.to_string(),

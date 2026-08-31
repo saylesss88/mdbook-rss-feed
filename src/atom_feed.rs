@@ -5,8 +5,8 @@
 //! and dates are copied across where available.
 
 use atom_syndication::{
-    Content as AtomContent, Entry as AtomEntry, Feed as AtomFeed, Link as AtomLink,
-    Person as AtomPerson, Text as AtomText,
+    Category as AtomCategory, Content as AtomContent, Entry as AtomEntry, Feed as AtomFeed,
+    Link as AtomLink, Person as AtomPerson, Text as AtomText,
 };
 use chrono::DateTime;
 use rss::Channel;
@@ -19,7 +19,7 @@ fn entry_id(item: &rss::Item) -> String {
         .unwrap_or_else(|| item.title().unwrap_or_default().to_string())
 }
 
-fn build_entry(item: &rss::Item) -> AtomEntry {
+fn build_entry(item: &rss::Item, tags: &[String]) -> AtomEntry {
     let mut entry = AtomEntry::default();
     entry.set_id(entry_id(item));
 
@@ -59,6 +59,17 @@ fn build_entry(item: &rss::Item) -> AtomEntry {
         }]);
     }
 
+    // Map tags to Atom <category> elements.
+    if !tags.is_empty() {
+        entry.set_categories(
+            tags.iter()
+                .map(|t| AtomCategory {
+                    term: t.clone(),
+                    ..Default::default()
+                })
+                .collect::<Vec<_>>(),
+        );
+    }
     entry
 }
 
@@ -83,8 +94,17 @@ pub fn rss_to_atom(
     next_url: Option<&str>,
     prev_url: Option<&str>,
     authors: &[String],
+    item_tags: &[Vec<String>],
 ) -> AtomFeed {
-    let entries: Vec<AtomEntry> = channel.items().iter().map(build_entry).collect();
+    let entries: Vec<AtomEntry> = channel
+        .items()
+        .iter()
+        .enumerate()
+        .map(|(i, item)| {
+            let tags = item_tags.get(i).map(Vec::as_slice).unwrap_or(&[]);
+            build_entry(item, tags)
+        })
+        .collect();
 
     // Set feed-level updated to the most recent entry date.
     // Fall back to plausible date rather then the Unix epoch
