@@ -58,6 +58,7 @@ struct RawFrontmatter {
     #[serde(default)]
     feed: Option<FeedVisibility>,
     tags: Vec<String>,
+    lang: Option<String>,
 }
 
 /// Parsed YAML frontmatter for a single chapter.
@@ -78,7 +79,10 @@ pub struct FrontMatter {
     /// Per-chapter feed inclusion override. When absent, the chapter follows
     /// the book-level `default-behavior` (`include-all` by default).
     pub feed: Option<FeedVisibility>,
+    /// Tags/categories for this chapter.
     pub tags: Vec<String>,
+    /// BCP-47 language tag for this chapter.
+    pub lang: Option<String>,
 }
 
 /// Extract the text of the first `# Heading` in a Markdown body.
@@ -181,6 +185,7 @@ pub fn parse_frontmatter(
             description: None,
             feed: None,
             tags: Vec::new(),
+            lang: None,
         },
         Some(yaml) => match yaml_serde::from_str::<RawFrontmatter>(&yaml) {
             Ok(raw_fm) => FrontMatter {
@@ -190,6 +195,7 @@ pub fn parse_frontmatter(
                 description: raw_fm.description,
                 feed: raw_fm.feed,
                 tags: raw_fm.tags,
+                lang: raw_fm.lang,
             },
             Err(e) => {
                 let msg = format!(
@@ -208,6 +214,7 @@ pub fn parse_frontmatter(
                     description: None,
                     feed: None,
                     tags: Vec::new(),
+                    lang: None,
                 }
             }
         },
