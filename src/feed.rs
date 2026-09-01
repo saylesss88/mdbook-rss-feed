@@ -12,6 +12,17 @@ use crate::error::Result;
 use crate::frontmatter::FeedVisibility;
 use crate::preview::render_preview;
 
+/// Per-item metadata carried alongside RSS channel items through the feed
+/// pipeline. Holds fields that aren't representable in RSS 2.0 items but
+/// are needed when converting to Atom or JSON Feed.
+#[derive(Debug, Clone, Default)]
+pub struct ItemMeta {
+    /// Tags/categories for this item.
+    pub tags: Vec<String>,
+    /// BCP-47 language tag (e.g. `"en"`, `"fr"`).
+    pub lang: Option<String>,
+}
+
 /// One generated RSS feed file.
 ///
 /// `filename` is the relative file name written into `src/` (for example
@@ -20,8 +31,8 @@ pub struct FeedPage {
     /// e.g. "rss.xml", "rss2.xml"
     pub filename: String,
     pub channel: Channel,
-    // Per-item tags, parallel to `channel.items()`.
-    pub item_tags: Vec<Vec<String>>,
+    // Per-item metadata, parallel to `channel.items()`.
+    pub item_meta: Vec<ItemMeta>,
 }
 
 /// Result of building feeds for a book.
@@ -166,7 +177,7 @@ fn build_channel(
 /// Split `items` into one or more [`FeedPage`]s according to `opts`.
 fn paginate(
     items: &[Item],
-    tags: &[Vec<String>],
+    meta: &[ItemMeta],
     opts: &FeedOptions<'_>,
     base_url: &str,
 ) -> Vec<FeedPage> {
@@ -178,7 +189,7 @@ fn paginate(
         return vec![FeedPage {
             filename: "rss.xml".to_string(),
             channel,
-            item_tags: tags.to_vec(),
+            item_meta: meta.to_vec(),
         }];
     }
 
@@ -197,7 +208,7 @@ fn paginate(
         pages.push(FeedPage {
             filename: rss_filename(page_idx),
             channel,
-            item_tags: tags[start..end].to_vec(),
+            item_meta: meta[start..end].to_vec(),
         });
     }
     pages
@@ -208,7 +219,7 @@ fn articles_to_items(
     articles: Vec<Article>,
     opts: &FeedOptions<'_>,
     base_url: &str,
-) -> (Vec<Item>, Vec<Vec<String>>) {
+) -> (Vec<Item>, Vec<ItemMeta>) {
     articles
         .into_iter()
         .filter(|a| article_is_included(a, &opts.default_behavior))
@@ -254,7 +265,11 @@ fn articles_to_items(
                         .collect::<Vec<_>>(),
                 );
             }
-            (item.build(), article.fm.tags)
+            let meta = ItemMeta {
+                tags: article.fm.tags,
+                lang: article.fm.lang,
+            };
+            (item.build(), meta)
         })
         .unzip()
 }
@@ -262,9 +277,9 @@ fn articles_to_items(
 #[must_use]
 pub fn build_feed_from_articles(articles: Vec<Article>, opts: &FeedOptions<'_>) -> BuildResult {
     let base_url = opts.site_url.trim_end_matches('/');
-    let (items, tags) = articles_to_items(articles, opts, base_url);
+    let (items, meta) = articles_to_items(articles, opts, base_url);
     BuildResult {
-        pages: paginate(&items, &tags, opts, base_url),
+        pages: paginate(&items, &meta, opts, base_url),
     }
 }
 
