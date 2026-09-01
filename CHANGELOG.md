@@ -10,11 +10,11 @@ and this project adheres to
 
 ### Added
 
-- **Language support**: add `lang` to chapter frontmatter to declare the
-  chapter language as a BCP-47 tag (e.g. `en`, `fr`, `en-US`). Appears as
-  `"language"` per item in JSON Feed 1.1 and as `xml:lang` on the Atom feed
-  element (set from the first chapter that declares a language). Has no
-  effect on RSS, which only supports language at the feed level.
+- **Language support**: add `lang` to chapter frontmatter to declare the chapter
+  language as a BCP-47 tag (e.g. `en`, `fr`, `en-US`). Appears as `"language"`
+  per item in JSON Feed 1.1 and as `xml:lang` on the Atom feed element (set from
+  the first chapter that declares a language). Has no effect on RSS, which only
+  supports language at the feed level.
 
 - **Tag/category support** add `tags` to chapter frontmatter to populate
   `<category>` elements in RSS and Atom, and the `tags` array in JSON Feed 1.1:
@@ -30,6 +30,11 @@ and this project adheres to
 ```
 
 - Atom & RSS both use `<category>`, while JSON feed uses `"tags"` in the output.
+
+### Fixed
+
+- `flake.nix` in crate root. Now has the correct license and `buildFeatures`
+  override support.
 
 ## [1.10.2] - 2026-08-24
 
