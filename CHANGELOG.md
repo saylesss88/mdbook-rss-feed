@@ -10,6 +10,8 @@ and this project adheres to
 
 ### Added
 
+- Warning for people who set `author` in frontmatter without setting
+  `author-email` in `book.toml`.
 - **Language support**: add `lang` to chapter frontmatter to declare the chapter
   language as a BCP-47 tag (e.g. `en`, `fr`, `en-US`). Appears as `"language"`
   per item in JSON Feed 1.1 and as `xml:lang` on the Atom feed element (set from
@@ -33,7 +35,8 @@ and this project adheres to
 
 ### Fixed
 
-- Failing tests, `yaml_serde` didn't respect the default attribute used in `RawFrontmatter`
+- Failing tests, `yaml_serde` didn't respect the default attribute used in
+  `RawFrontmatter`
 
 - `flake.nix` in crate root. Now has the correct license and `buildFeatures`
   override support.
