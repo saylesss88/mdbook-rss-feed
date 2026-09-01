@@ -57,7 +57,7 @@ struct RawFrontmatter {
     description: Option<String>,
     #[serde(default)]
     feed: Option<FeedVisibility>,
-    tags: Vec<String>,
+    tags: Option<Vec<String>>,
     lang: Option<String>,
 }
 
@@ -194,7 +194,7 @@ pub fn parse_frontmatter(
                 author: raw_fm.author,
                 description: raw_fm.description,
                 feed: raw_fm.feed,
-                tags: raw_fm.tags,
+                tags: raw_fm.tags.unwrap_or_default(),
                 lang: raw_fm.lang,
             },
             Err(e) => {
