@@ -33,6 +33,8 @@ and this project adheres to
 
 ### Fixed
 
+- Failing tests, `yaml_serde` didn't respect the default attribute used in `RawFrontmatter`
+
 - `flake.nix` in crate root. Now has the correct license and `buildFeatures`
   override support.
 
