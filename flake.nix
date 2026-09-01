@@ -1,6 +1,5 @@
 {
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-
   inputs.flake-utils.url = "github:numtide/flake-utils";
 
   outputs =
@@ -13,25 +12,43 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages."${system}";
-        manifest = (pkgs.lib.importTOML ./Cargo.toml).package;
+
+        mkMdbookRssFeed =
+          {
+            withAtom ? false,
+            withJsonFeed ? false,
+          }:
+          let
+            manifest = (pkgs.lib.importTOML ./Cargo.toml).package;
+            buildFeatures =
+              pkgs.lib.optional withAtom "atom"
+              ++ pkgs.lib.optional withJsonFeed "json-feed";
+          in
+          pkgs.rustPlatform.buildRustPackage {
+            pname = manifest.name;
+            version = manifest.version;
+            src = ./.;
+            cargoLock.lockFile = ./Cargo.lock;
+            inherit buildFeatures;
+            meta = with pkgs.lib; {
+              description = manifest.description;
+              homepage = manifest.repository;
+              license = licenses.asl20;
+              mainProgram = "mdbook-rss-feed";
+            };
+          };
       in
       {
-        packages.default = pkgs.rustPlatform.buildRustPackage {
-          pname = manifest.name;
-          version = manifest.version;
-          src = ./.;
-          cargoLock.lockFile = ./Cargo.lock;
-
-          meta = with pkgs.lib; {
-            description = manifest.description;
-            homepage = manifest.repository;
-            license = licenses.mit;
-            mainProgram = "mdbook-rss-feed";
-          };
+        packages.default = mkMdbookRssFeed { };
+        packages.full = mkMdbookRssFeed {
+          withAtom = true;
+          withJsonFeed = true;
         };
+
         apps.default = flake-utils.lib.mkApp {
           drv = self.packages.${system}.default;
         };
+
         devShells.default = pkgs.mkShell {
           packages = [
             pkgs.rustup.out
