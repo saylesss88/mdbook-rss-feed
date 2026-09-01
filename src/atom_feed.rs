@@ -11,6 +11,8 @@ use atom_syndication::{
 use chrono::DateTime;
 use rss::Channel;
 
+use crate::feed::ItemMeta;
+
 /// Stable per-entry id: prefer guid, then link, then title.
 fn entry_id(item: &rss::Item) -> String {
     item.guid()
@@ -19,7 +21,7 @@ fn entry_id(item: &rss::Item) -> String {
         .unwrap_or_else(|| item.title().unwrap_or_default().to_string())
 }
 
-fn build_entry(item: &rss::Item, tags: &[String]) -> AtomEntry {
+fn build_entry(item: &rss::Item, meta: &ItemMeta) -> AtomEntry {
     let mut entry = AtomEntry::default();
     entry.set_id(entry_id(item));
 
@@ -60,9 +62,10 @@ fn build_entry(item: &rss::Item, tags: &[String]) -> AtomEntry {
     }
 
     // Map tags to Atom <category> elements.
-    if !tags.is_empty() {
+    if !meta.tags.is_empty() {
         entry.set_categories(
-            tags.iter()
+            meta.tags
+                .iter()
                 .map(|t| AtomCategory {
                     term: t.clone(),
                     ..Default::default()
@@ -70,6 +73,7 @@ fn build_entry(item: &rss::Item, tags: &[String]) -> AtomEntry {
                 .collect::<Vec<_>>(),
         );
     }
+
     entry
 }
 
@@ -94,15 +98,15 @@ pub fn rss_to_atom(
     next_url: Option<&str>,
     prev_url: Option<&str>,
     authors: &[String],
-    item_tags: &[Vec<String>],
+    item_meta: &[ItemMeta],
 ) -> AtomFeed {
     let entries: Vec<AtomEntry> = channel
         .items()
         .iter()
         .enumerate()
         .map(|(i, item)| {
-            let tags = item_tags.get(i).map(Vec::as_slice).unwrap_or(&[]);
-            build_entry(item, tags)
+            let meta = item_meta.get(i).cloned().unwrap_or_default();
+            build_entry(item, &meta)
         })
         .collect();
 
@@ -117,6 +121,12 @@ pub fn rss_to_atom(
     let mut feed = AtomFeed::default();
     feed.set_title(channel.title().to_string());
     feed.set_updated(latest);
+
+    // Set feed-level xml:lang from the first item that declares one.
+    if let Some(lang) = item_meta.iter().find_map(|m| m.lang.as_deref()) {
+        feed.set_lang(Some(lang.to_string()));
+    }
+
     feed.set_entries(entries);
 
     // Feed-level authors: required by Atom spec when entries lack individual authors
