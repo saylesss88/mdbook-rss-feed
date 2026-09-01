@@ -253,7 +253,7 @@ fn articles_to_items(
                 } else {
                     eprintln!(
                         "mdbook-rss-feed: warning: chapter '{}' has `author` in frontmatter \
-             but `author-email` is not set in book.toml — author will be omitted \
+             but `author-email` is not set in book.toml: author will be omitted \
              from RSS output. Set `author-email` in [preprocessor.rss-feed] to \
              include it.",
                         article.fm.title
