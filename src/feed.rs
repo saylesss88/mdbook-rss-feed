@@ -323,6 +323,7 @@ mod tests {
                 description: None,
                 feed,
                 tags: Vec::new(),
+                lang: None,
             },
             content: format!("# {title}\n\nSome content for {title}."),
             path: path.to_string(),
