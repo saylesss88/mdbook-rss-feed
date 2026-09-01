@@ -246,12 +246,20 @@ fn articles_to_items(
                 // violating RFC 2822. Format manually to ensure compliance.
                 item.pub_date(Some(date.format("%a, %d %b %Y %T %z").to_string()));
             }
-            if let Some(author) = article.fm.author
-                && let Some(email) = &opts.author_email
-            {
-                item.author(Some(format!("{email} ({author})")));
-            }
 
+            if let Some(author) = article.fm.author {
+                if let Some(email) = &opts.author_email {
+                    item.author(Some(format!("{email} ({author})")));
+                } else {
+                    eprintln!(
+                        "mdbook-rss-feed: warning: chapter '{}' has `author` in frontmatter \
+             but `author-email` is not set in book.toml — author will be omitted \
+             from RSS output. Set `author-email` in [preprocessor.rss-feed] to \
+             include it.",
+                        article.fm.title
+                    );
+                }
+            }
             if !article.fm.tags.is_empty() {
                 item.categories(
                     article
