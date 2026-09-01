@@ -8,6 +8,8 @@ use rss::Channel;
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 
+use crate::feed::ItemMeta;
+
 /// Minimal JSON Feed 1.1 document.
 #[derive(Serialize)]
 pub struct JsonFeed {
@@ -41,6 +43,9 @@ pub struct JsonFeedItem {
     /// Tags/categories for this item, per JSON Feed 1.1 spec.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
+    /// BCP-47 language tag, per JSON Feed 1.1 spec.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
 }
 
 /// Stable per-item id: prefer guid, then link, then title.
@@ -57,23 +62,27 @@ pub fn rss_to_json_feed(
     channel: &Channel,
     feed_url: Option<&str>,
     next_url: Option<&str>,
-    item_tags: &[Vec<String>],
+    item_meta: &[ItemMeta],
 ) -> JsonFeed {
     let items: Vec<JsonFeedItem> = channel
         .items()
         .iter()
         .enumerate()
-        .map(|(i, item)| JsonFeedItem {
-            id: item_id(item),
-            url: item.link().map(str::to_string),
-            title: item.title().map(str::to_string),
-            content_html: item.description().map(str::to_string),
-            date_published: item
-                .pub_date()
-                .and_then(|d| DateTime::parse_from_rfc2822(d).ok())
-                .map(|dt| dt.to_rfc3339()),
-            author: item.author().map(|a| serde_json::json!({ "name": a })),
-            tags: item_tags.get(i).cloned().unwrap_or_default(),
+        .map(|(i, item)| {
+            let meta = item_meta.get(i).cloned().unwrap_or_default();
+            JsonFeedItem {
+                id: item_id(item),
+                url: item.link().map(str::to_string),
+                title: item.title().map(str::to_string),
+                content_html: item.description().map(str::to_string),
+                date_published: item
+                    .pub_date()
+                    .and_then(|d| DateTime::parse_from_rfc2822(d).ok())
+                    .map(|dt| dt.to_rfc3339()),
+                author: item.author().map(|a| serde_json::json!({ "name": a })),
+                tags: meta.tags,
+                language: meta.lang,
+            }
         })
         .collect();
 
