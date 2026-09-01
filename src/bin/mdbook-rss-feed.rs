@@ -174,7 +174,7 @@ fn write_json_pages(
             &page.channel,
             Some(&self_url),
             next_url.as_deref(),
-            &page.item_tags,
+            &page.item_meta,
         );
         let json_path = config.src_dir.join(if page_idx == 0 {
             "feed.json".to_string()
@@ -248,7 +248,7 @@ fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) ->
             next_url.as_deref(),
             prev_url.as_deref(),
             &config.authors,
-            &page.item_tags,
+            &page.item_meta,
         );
         let atom_path = config.src_dir.join(if page_idx == 0 {
             "atom.xml".to_string()
