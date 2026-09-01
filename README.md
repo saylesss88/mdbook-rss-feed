@@ -147,6 +147,10 @@ date: 2025-11-22
 author: saylesss88
 description: This chapter covers debugging NixOS modules, focusing on tracing
   module options and evaluating merges.
+lang: en-US
+tags:
+  - Debugging
+  - NixOS
 ---
 ```
 - `title` is optional. If omitted, the preprocessor uses the first `# Heading`
@@ -167,6 +171,12 @@ description: This chapter covers debugging NixOS modules, focusing on tracing
   keeps the feed valid either way. When set, the output format is
   `email (Name)`, e.g. `you@example.com (Your Name)`. Atom and JSON Feed
   don't have this restriction and include the author name directly.
+- `tags` in frontmatter to populate `<category>` elements in RSS and Atom, and
+  the `tags` array in JSON Feed 1.1.
+- `lang`: BCP-47 language tag for the chapter (e.g. `en`, `fr`, `en-US`).
+  Appears as `"language"` per item in JSON Feed and as `xml:lang` on the
+  feed element in Atom. RSS 2.0 only supports language at the feed level,
+  so this field has no effect on `rss.xml`.
 
 ### Feed visibility
 
