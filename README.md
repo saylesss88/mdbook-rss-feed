@@ -154,6 +154,9 @@ tags:
   - NixOS
 ---
 ```
+
+- `description` is ignored if your chapters have enough body content, it's just
+  a fallback.
 - `title` is optional. If omitted, the preprocessor uses the first `# Heading`
   in the chapter body, then falls back to the chapter name from the `SUMMARY.md`.
   This means you never need to repeat your headings as a frontmatter field.
