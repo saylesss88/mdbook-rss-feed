@@ -80,10 +80,11 @@ pub fn rss_to_json_feed(
             let meta = item_meta.get(i).cloned().unwrap_or_default();
 
             let author = meta.author.as_deref().map(|name| {
-                meta.author_email.as_deref().map_or_else(
-                    || serde_json::json!({ "name": name }),
-                    |email| serde_json::json!({ "name": name, "url": format!("mailto:{email}") }),
-                )
+                if let Some(email) = meta.author_email.as_deref() {
+                    serde_json::json!({ "name": name, "email": email })
+                } else {
+                    serde_json::json!({ "name": name })
+                }
             });
             JsonFeedItem {
                 id: item_id(item),
