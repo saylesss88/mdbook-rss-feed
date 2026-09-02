@@ -49,6 +49,8 @@ and this project adheres to
 
 ### Fixed
 
+- `RawFrontmatter` field is `author_email`, when YAML uses hyphens. Added a
+   `#[serde(rename = "author-email")]` to the field.
 - `strict = true` now fails the build when a chapter has `author:` in
   frontmatter but no `author-email` is configured. Without strict mode a warning
   is printed instead.
