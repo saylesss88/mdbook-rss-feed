@@ -49,6 +49,27 @@ and this project adheres to
 
 ### Fixed
 
+- When setting both `author` and `author-email` in frontmatter, `feed.json` had
+this:
+
+```json
+      "author": {
+        "name": "sayls8",
+        "url": "mailto:sayls8@proton.me"
+      },
+```
+
+Changed the `author` variable in `json_feed.rs` and now it produces what most
+feed readers would expect:
+
+```json
+
+     "author": {
+        "email": "sayls8@proton.me",
+        "name": "sayls8"
+      },
+```
+
 - `RawFrontmatter` field is `author_email`, when YAML uses hyphens. Added a
    `#[serde(rename = "author-email")]` to the field.
 - `strict = true` now fails the build when a chapter has `author:` in
