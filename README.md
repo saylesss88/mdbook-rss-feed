@@ -120,7 +120,10 @@ site-url = "https://your-user.github.io/"
 - `icon` and `favicon` appear in JSON Feed only. `icon` is shown in timeline
   views (512×512+ recommended); `favicon` is shown in source/subscription
   lists (64×64+ recommended). Both should use transparency and be square.
-- `strict = true` fails the build immediately on any frontmatter parse error
+- `icon` and `favicon` appear in JSON Feed only and are used by feed readers
+  that support JSON Feed 1.1 (e.g. NetNewsWire, Reeder). Feedly and some
+  other readers ignore these fields and use their own favicon fetching instead.
+  - `strict = true` fails the build immediately on any frontmatter parse error
   or missing `author-email` when `author` is explicitly set in frontmatter.
 
 ### Pagination
