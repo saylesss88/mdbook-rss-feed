@@ -10,6 +10,20 @@ and this project adheres to
 
 ### Added
 
+- **`icon` and `favicon` for JSON Feed**: set feed-level image URLs in
+  `book.toml` for display in feed reader timelines and source lists:
+
+```toml
+  [preprocessor.rss-feed]
+  icon    = "https://example.com/icon-512.png"
+  favicon = "https://example.com/favicon-64.png"
+```
+
+- **Author fallback chain**: when no `author:` is set in chapter frontmatter,
+  the first entry in `[book] authors` is used as a fallback. Per-chapter
+  `author_email:` frontmatter field added to override the book-level
+  `author-email` for individual chapters.
+
 - Warning for people who set `author` in frontmatter without setting
   `author-email` in `book.toml`.
 - **Language support**: add `lang` to chapter frontmatter to declare the chapter
@@ -34,6 +48,13 @@ and this project adheres to
 - Atom & RSS both use `<category>`, while JSON feed uses `"tags"` in the output.
 
 ### Fixed
+
+- `strict = true` now fails the build when a chapter has `author:` in
+  frontmatter but no `author-email` is configured. Without strict mode a warning
+  is printed instead.
+- The author warning no longer fires for every chapter when `[book] authors` is
+  set but `author-email` is not. The warning only triggers when `author:` is
+  explicitly declared in a chapter's own frontmatter.
 
 - Failing tests, `yaml_serde` didn't respect the default attribute used in
   `RawFrontmatter`
