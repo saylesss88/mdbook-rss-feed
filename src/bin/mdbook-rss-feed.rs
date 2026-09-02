@@ -189,6 +189,8 @@ fn write_json_pages(
             Some(&self_url),
             next_url.as_deref(),
             &page.item_meta,
+            config.icon.as_deref(),
+            config.favicon.as_deref(),
         );
         let json_path = config.src_dir.join(if page_idx == 0 {
             "feed.json".to_string()

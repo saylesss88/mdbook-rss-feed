@@ -21,6 +21,12 @@ pub struct JsonFeed {
     pub feed_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// URL of a large square image (512×512+) for use in timelines.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    /// URL of a small square image (64×64+) for use in source lists.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub favicon: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_url: Option<String>,
     pub items: Vec<JsonFeedItem>,
@@ -63,6 +69,8 @@ pub fn rss_to_json_feed(
     feed_url: Option<&str>,
     next_url: Option<&str>,
     item_meta: &[ItemMeta],
+    icon: Option<&str>,
+    favicon: Option<&str>,
 ) -> JsonFeed {
     let items: Vec<JsonFeedItem> = channel
         .items()
@@ -70,6 +78,13 @@ pub fn rss_to_json_feed(
         .enumerate()
         .map(|(i, item)| {
             let meta = item_meta.get(i).cloned().unwrap_or_default();
+
+            let author = meta.author.as_deref().map(|name| {
+                meta.author_email.as_deref().map_or_else(
+                    || serde_json::json!({ "name": name }),
+                    |email| serde_json::json!({ "name": name, "url": format!("mailto:{email}") }),
+                )
+            });
             JsonFeedItem {
                 id: item_id(item),
                 url: item.link().map(str::to_string),
@@ -79,7 +94,7 @@ pub fn rss_to_json_feed(
                     .pub_date()
                     .and_then(|d| DateTime::parse_from_rfc2822(d).ok())
                     .map(|dt| dt.to_rfc3339()),
-                author: item.author().map(|a| serde_json::json!({ "name": a })),
+                author,
                 tags: meta.tags,
                 language: meta.lang,
             }
@@ -92,6 +107,8 @@ pub fn rss_to_json_feed(
         home_page_url: Some(channel.link().to_string()),
         feed_url: feed_url.map(str::to_string),
         description: Some(channel.description().to_string()),
+        icon: icon.map(str::to_string),
+        favicon: favicon.map(str::to_string),
         next_url: next_url.map(str::to_string),
         items,
     }

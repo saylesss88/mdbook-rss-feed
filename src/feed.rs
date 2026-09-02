@@ -255,11 +255,8 @@ fn articles_to_items(
             }
 
             // Resolve author: per-chapter > book-level authors[0]
-            let resolved_author = article
-                .fm
-                .author
-                .clone()
-                .or_else(|| opts.book_author.clone());
+            let chapter_author = article.fm.author.clone();
+            let resolved_author = chapter_author.clone().or_else(|| opts.book_author.clone());
 
             // Resolve email: per-chapter > book-level author-email
             let resolved_email = article
@@ -271,23 +268,20 @@ fn articles_to_items(
             if let Some(ref author) = resolved_author {
                 if let Some(ref email) = resolved_email {
                     item.author(Some(format!("{email} ({author})")));
-                } else {
+                } else if chapter_author.is_some() {
                     let msg = format!(
                         "mdbook-rss-feed: chapter '{}' has `author` in frontmatter \
-                         but no `author-email` is set (in book.toml or frontmatter): \
-                         author will be omitted from RSS output.",
+             but no `author-email` is set ...",
                         article.fm.title
                     );
                     if opts.strict {
                         eprintln!("error: {msg}");
                         std::process::exit(1);
                     }
-                    eprintln!(
-                        "warning: {msg} Set `author-email` in \
-                               [preprocessor.rss-feed] or frontmatter to include it."
-                    );
+                    eprintln!("warning: {msg}");
                 }
             }
+
             if !article.fm.tags.is_empty() {
                 item.categories(
                     article
