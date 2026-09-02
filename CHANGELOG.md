@@ -49,8 +49,11 @@ and this project adheres to
 
 ### Fixed
 
+- Reverted back to `"url": "mailto:sayls8@proton.me"` for `feed.json` to make
+  the feed pass validation. `author` & `author-email` are mainly used for RSS.
+
 - When setting both `author` and `author-email` in frontmatter, `feed.json` had
-this:
+  this:
 
 ```json
       "author": {
@@ -71,7 +74,7 @@ feed readers would expect:
 ```
 
 - `RawFrontmatter` field is `author_email`, when YAML uses hyphens. Added a
-   `#[serde(rename = "author-email")]` to the field.
+  `#[serde(rename = "author-email")]` to the field.
 - `strict = true` now fails the build when a chapter has `author:` in
   frontmatter but no `author-email` is configured. Without strict mode a warning
   is printed instead.
