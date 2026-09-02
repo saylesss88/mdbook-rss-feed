@@ -21,6 +21,10 @@ pub struct ItemMeta {
     pub tags: Vec<String>,
     /// BCP-47 language tag (e.g. `"en"`, `"fr"`).
     pub lang: Option<String>,
+    /// Resolved author name for this item.
+    pub author: Option<String>,
+    /// Resolved author email for this item (per-chapter or book-level).
+    pub author_email: Option<String>,
 }
 
 /// One generated RSS feed file.
@@ -77,6 +81,9 @@ pub struct FeedOptions<'a> {
     pub default_behavior: DefaultBehavior,
     pub strict: bool,
     pub author_email: Option<String>,
+    pub book_author: Option<String>,
+    pub icon: Option<String>,
+    pub favicon: Option<String>,
 }
 
 /// Return `true` if this article should appear in the feed given `default_behavior`.
@@ -247,16 +254,37 @@ fn articles_to_items(
                 item.pub_date(Some(date.format("%a, %d %b %Y %T %z").to_string()));
             }
 
-            if let Some(author) = article.fm.author {
-                if let Some(email) = &opts.author_email {
+            // Resolve author: per-chapter > book-level authors[0]
+            let resolved_author = article
+                .fm
+                .author
+                .clone()
+                .or_else(|| opts.book_author.clone());
+
+            // Resolve email: per-chapter > book-level author-email
+            let resolved_email = article
+                .fm
+                .author_email
+                .clone()
+                .or_else(|| opts.author_email.clone());
+
+            if let Some(ref author) = resolved_author {
+                if let Some(ref email) = resolved_email {
                     item.author(Some(format!("{email} ({author})")));
                 } else {
-                    eprintln!(
-                        "mdbook-rss-feed: warning: chapter '{}' has `author` in frontmatter \
-             but `author-email` is not set in book.toml: author will be omitted \
-             from RSS output. Set `author-email` in [preprocessor.rss-feed] to \
-             include it.",
+                    let msg = format!(
+                        "mdbook-rss-feed: chapter '{}' has `author` in frontmatter \
+                         but no `author-email` is set (in book.toml or frontmatter): \
+                         author will be omitted from RSS output.",
                         article.fm.title
+                    );
+                    if opts.strict {
+                        eprintln!("error: {msg}");
+                        std::process::exit(1);
+                    }
+                    eprintln!(
+                        "warning: {msg} Set `author-email` in \
+                               [preprocessor.rss-feed] or frontmatter to include it."
                     );
                 }
             }
@@ -276,6 +304,8 @@ fn articles_to_items(
             let meta = ItemMeta {
                 tags: article.fm.tags,
                 lang: article.fm.lang,
+                author: resolved_author,
+                author_email: resolved_email,
             };
             (item.build(), meta)
         })
@@ -350,6 +380,9 @@ mod tests {
             default_behavior: DefaultBehavior::IncludeAll,
             strict: false,
             author_email: None,
+            book_author: None,
+            icon: None,
+            favicon: None,
         }
     }
 

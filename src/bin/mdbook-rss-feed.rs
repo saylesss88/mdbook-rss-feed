@@ -43,6 +43,8 @@ struct FeedConfig {
     authors: Vec<String>,
     strict: bool,
     author_email: Option<String>,
+    icon: Option<String>,
+    favicon: Option<String>,
 }
 
 impl FeedConfig {
@@ -114,9 +116,18 @@ impl FeedConfig {
                 .pointer("/config/preprocessor/rss-feed/author-email")
                 .and_then(Value::as_str)
                 .map(str::to_string),
+            icon: context
+                .pointer("/config/preprocessor/rss-feed/icon")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            favicon: context
+                .pointer("/config/preprocessor/rss-feed/favicon")
+                .and_then(Value::as_str)
+                .map(str::to_string),
         }
     }
     fn feed_options(&self) -> FeedOptions<'_> {
+        let book_author = self.authors.first().cloned();
         FeedOptions {
             title: &self.title,
             site_url: &self.site_url,
@@ -127,6 +138,9 @@ impl FeedConfig {
             default_behavior: self.default_behavior.clone(),
             strict: self.strict,
             author_email: self.author_email.clone(),
+            book_author,
+            icon: self.icon.clone(),
+            favicon: self.favicon.clone(),
         }
     }
 }
