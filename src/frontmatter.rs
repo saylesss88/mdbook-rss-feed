@@ -54,6 +54,7 @@ struct RawFrontmatter {
     #[serde(deserialize_with = "deserialize_date", default)]
     date: Option<DateTime<Utc>>,
     author: Option<String>,
+    author_email: Option<String>,
     description: Option<String>,
     #[serde(default)]
     feed: Option<FeedVisibility>,
@@ -67,6 +68,7 @@ struct RawFrontmatter {
 /// - `title`: item title shown in the feed.
 /// - `date`: publish date for sorting and `pubDate` (RFC3339 or `YYYY-MM-DD`).
 /// - `author`: optional item author.
+/// - `author_email`: optional per-chapter author email for RSS `<author>`.
 /// - `description`: optional summary/preview override.
 /// - `feed`: per-chapter inclusion override (`include` or `exclude`).
 #[derive(Debug, Clone)]
@@ -74,6 +76,7 @@ pub struct FrontMatter {
     pub title: String,
     pub date: Option<DateTime<Utc>>,
     pub author: Option<String>,
+    pub author_email: Option<String>,
     /// User-supplied summary, used as a fallback preview source.
     pub description: Option<String>,
     /// Per-chapter feed inclusion override. When absent, the chapter follows
@@ -182,6 +185,7 @@ pub fn parse_frontmatter(
             title: resolve_title(None, &body, title_hint),
             date: fallback_date,
             author: None,
+            author_email: None,
             description: None,
             feed: None,
             tags: Vec::new(),
@@ -192,6 +196,7 @@ pub fn parse_frontmatter(
                 title: resolve_title(raw_fm.title, &body, title_hint),
                 date: raw_fm.date.or(fallback_date),
                 author: raw_fm.author,
+                author_email: raw_fm.author_email,
                 description: raw_fm.description,
                 feed: raw_fm.feed,
                 tags: raw_fm.tags.unwrap_or_default(),
@@ -211,6 +216,7 @@ pub fn parse_frontmatter(
                     title: resolve_title(None, &body, title_hint),
                     date: fallback_date,
                     author: None,
+                    author_email: None,
                     description: None,
                     feed: None,
                     tags: Vec::new(),

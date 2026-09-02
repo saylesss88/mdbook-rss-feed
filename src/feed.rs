@@ -328,6 +328,7 @@ mod tests {
                 title: title.to_string(),
                 date,
                 author: None,
+                author_email: None,
                 description: None,
                 feed,
                 tags: Vec::new(),
