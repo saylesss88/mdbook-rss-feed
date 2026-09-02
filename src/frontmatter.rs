@@ -54,6 +54,7 @@ struct RawFrontmatter {
     #[serde(deserialize_with = "deserialize_date", default)]
     date: Option<DateTime<Utc>>,
     author: Option<String>,
+    #[serde(rename = "author-email")]
     author_email: Option<String>,
     description: Option<String>,
     #[serde(default)]
