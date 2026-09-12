@@ -61,6 +61,7 @@ struct RawFrontmatter {
     feed: Option<FeedVisibility>,
     tags: Option<Vec<String>>,
     lang: Option<String>,
+    id: Option<String>,
 }
 
 /// Parsed YAML frontmatter for a single chapter.
@@ -87,6 +88,7 @@ pub struct FrontMatter {
     pub tags: Vec<String>,
     /// BCP-47 language tag for this chapter.
     pub lang: Option<String>,
+    pub id: Option<String>,
 }
 
 /// Extract the text of the first `# Heading` in a Markdown body.
@@ -191,6 +193,7 @@ pub fn parse_frontmatter(
             feed: None,
             tags: Vec::new(),
             lang: None,
+            id: None,
         },
         Some(yaml) => match yaml_serde::from_str::<RawFrontmatter>(&yaml) {
             Ok(raw_fm) => FrontMatter {
@@ -202,6 +205,7 @@ pub fn parse_frontmatter(
                 feed: raw_fm.feed,
                 tags: raw_fm.tags.unwrap_or_default(),
                 lang: raw_fm.lang,
+                id: raw_fm.id,
             },
             Err(e) => {
                 let msg = format!(
@@ -222,6 +226,7 @@ pub fn parse_frontmatter(
                     feed: None,
                     tags: Vec::new(),
                     lang: None,
+                    id: None,
                 }
             }
         },

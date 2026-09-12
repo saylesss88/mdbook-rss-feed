@@ -23,7 +23,9 @@ fn entry_id(item: &rss::Item) -> String {
 
 fn build_entry(item: &rss::Item, meta: &ItemMeta) -> AtomEntry {
     let mut entry = AtomEntry::default();
-    entry.set_id(entry_id(item));
+    // Use frontmatter `id` as stable entry ID when provided.
+    let id = meta.id.clone().unwrap_or_else(|| entry_id(item));
+    entry.set_id(id);
 
     if let Some(title) = item.title() {
         entry.set_title(title.to_string());

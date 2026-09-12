@@ -86,15 +86,8 @@ pub fn rss_to_json_feed(
                     serde_json::json!({ "name": name })
                 }
             });
-            // let author = meta.author.as_deref().map(|name| {
-            //     if let Some(email) = meta.author_email.as_deref() {
-            //         serde_json::json!({ "name": name, "email": email })
-            //     } else {
-            //         serde_json::json!({ "name": name })
-            //     }
-            // });
             JsonFeedItem {
-                id: item_id(item),
+                id: meta.id.clone().unwrap_or_else(|| item_id(item)),
                 url: item.link().map(str::to_string),
                 title: item.title().map(str::to_string),
                 content_html: item.description().map(str::to_string),

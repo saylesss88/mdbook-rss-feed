@@ -25,6 +25,8 @@ pub struct ItemMeta {
     pub author: Option<String>,
     /// Resolved author email for this item (per-chapter or book-level).
     pub author_email: Option<String>,
+    /// Stable ID override from frontmatter `id:`.
+    pub id: Option<String>,
 }
 
 /// One generated RSS feed file.
@@ -300,6 +302,7 @@ fn articles_to_items(
                 lang: article.fm.lang,
                 author: resolved_author,
                 author_email: resolved_email,
+                id: article.fm.id,
             };
             (item.build(), meta)
         })
@@ -357,6 +360,7 @@ mod tests {
                 feed,
                 tags: Vec::new(),
                 lang: None,
+                id: None,
             },
             content: format!("# {title}\n\nSome content for {title}."),
             path: path.to_string(),
