@@ -24,6 +24,10 @@ fn entry_id(item: &rss::Item) -> String {
 fn build_entry(item: &rss::Item, meta: &ItemMeta) -> AtomEntry {
     let mut entry = AtomEntry::default();
     // Use frontmatter `id` as stable entry ID when provided.
+    //
+    // Note: atom_syndication 0.12.x has a known bug where certain domain names
+    // (e.g. github.io) in entry IDs lose the path separator during XML serialization.
+    // See: <upstream issue link once filed>
     let id = meta.id.clone().unwrap_or_else(|| entry_id(item));
     entry.set_id(id);
 
