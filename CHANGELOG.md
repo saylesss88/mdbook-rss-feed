@@ -10,6 +10,22 @@ and this project adheres to
 
 ### Added
 
+- [Issue #20](https://github.com/saylesss88/mdbook-rss-feed/issues/20)
+  - **Stable item ID override**: add `id:` to chapter frontmatter to set a
+    permanent identifier for RSS `<guid>`, Atom `<id>`, and JSON Feed `id`. Use
+    this when a chapter URL has changed to prevent federation tools (e.g. Bridgy
+    Fed) from treating it as a new post:
+
+```yaml
+  ---
+  title: My Post
+  date: 2026-08-01
+  id: https://example.com/original-url.html
+  ---
+```
+
+When absent, the computed chapter URL is used as before.
+
 - **`icon` and `favicon` for JSON Feed**: set feed-level image URLs in
   `book.toml` for display in feed reader timelines and source lists:
 
@@ -46,6 +62,13 @@ and this project adheres to
 ```
 
 - Atom & RSS both use `<category>`, while JSON feed uses `"tags"` in the output.
+
+### Known issues
+
+- `id:` in frontmatter is correctly applied in RSS and JSON Feed but is
+  corrupted in Atom output for `github.io` URLs due to a bug in the
+  `atom_syndication` crate's XML serializer. Other domains are unaffected.
+  Tracked upstream.
 
 ### Fixed
 
