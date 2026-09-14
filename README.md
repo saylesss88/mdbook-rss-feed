@@ -161,6 +161,7 @@ from `SUMMARY.md`. With it, the same block drives all three feed formats:
 title: Debugging NixOS modules
 date: 2025-11-22
 author: saylesss88
+author-email: example@proton.me
 description: This chapter covers debugging NixOS modules, focusing on tracing
   module options and evaluating merges.
 lang: en-US
