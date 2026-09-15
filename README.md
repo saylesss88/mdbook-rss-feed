@@ -153,6 +153,10 @@ and run `mdbook clean` before rebuilding.
 
 ## Frontmatter
 
+There is a new companion crate to this one that can auto inject frontmatter into
+all chapters at once,
+[mdbook-frontmatter-fix](https://crates.io/crates/mdbook-frontmatter-fix)
+
 Frontmatter is optional. Without it, entries fall back to the chapter name
 from `SUMMARY.md`. With it, the same block drives all three feed formats:
 
