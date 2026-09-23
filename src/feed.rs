@@ -1,16 +1,18 @@
 //! Building RSS 2.0 feed pages from collected articles.
 
-use std::collections::BTreeMap;
-use std::path::Path;
-use std::str::FromStr;
+use std::{collections::BTreeMap, path::Path, str::FromStr};
 
-use rss::extension::{Extension, ExtensionBuilder};
-use rss::{Channel, ChannelBuilder, Guid, Item, ItemBuilder};
+use rss::{
+    Channel, ChannelBuilder, Guid, Item, ItemBuilder,
+    extension::{Extension, ExtensionBuilder},
+};
 
-use crate::article::{Article, collect_articles};
-use crate::error::Result;
-use crate::frontmatter::FeedVisibility;
-use crate::preview::render_preview;
+use crate::{
+    article::{Article, collect_articles},
+    error::Result,
+    frontmatter::FeedVisibility,
+    preview::render_preview,
+};
 
 /// Per-item metadata carried alongside RSS channel items through the feed
 /// pipeline. Holds fields that aren't representable in RSS 2.0 items but

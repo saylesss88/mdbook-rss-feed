@@ -6,14 +6,12 @@ authors = ["T. Sawyer saylesss88@github.com"]
 license = "Apache-2.0"
 description = "An mdBook preprocessor that generates RSS, Atom, and JSON feeds"
 repository = "https://github.com/saylesss88/mdbook-rss-feed"
-readme = "README.md"
 keywords = ["mdbook", "rss", "feed", "preprocessor", "blog"]
 categories = [
-	"command-line-utilities",
-	"development-tools::build-utils",
-	"web-programming",
+  "command-line-utilities",
+  "development-tools::build-utils",
+  "web-programming",
 ]
-homepage = "https://github.com/saylesss88/mdbook-rss-feed"
 documentation = "https://docs.rs/mdbook-rss-feed"
 exclude = [".github/*", ".gitignore", "book/*"]
 
@@ -28,18 +26,18 @@ path = "src/bin/mdbook-rss-feed.rs"
 [dependencies]
 walkdir = "2"
 rss = "2.1.0"
-serde = {version = "1", features = ["serde_derive"], default-features = false}
-chrono = {version = "0.4", features = ["std"], default-features = false}
-pulldown-cmark = {version = "0.13", features = [
-	"html",
-], default-features = false}
+serde = { version = "1", features = ["serde_derive"], default-features = false }
+chrono = { version = "0.4", features = ["std"], default-features = false }
+pulldown-cmark = { version = "0.13", features = [
+  "html",
+], default-features = false }
 serde_json = "1"
-atom_syndication = {version = "0.12.10", default-features = false, optional = true}
-yaml_serde = {version = "0.10.7", default-features = false}
+atom_syndication = { version = "0.12.10", default-features = false, optional = true }
+yaml_serde = { version = "0.10.7", default-features = false }
 thiserror = "2.0.20"
 
 [dev-dependencies]
-tempfile = {version = "3", default-features = false}
+tempfile = { version = "3", default-features = false }
 
 [features]
 default = []
@@ -55,17 +53,17 @@ panic = "abort"
 
 [lints.rust]
 unsafe_code = "forbid"
-future_incompatible = {level = "warn", priority = -1}
-nonstandard_style = {level = "warn", priority = -1}
-rust_2018_idioms = {level = "warn", priority = -1}
+future_incompatible = { level = "warn", priority = -1 }
+nonstandard_style = { level = "warn", priority = -1 }
+rust_2018_idioms = { level = "warn", priority = -1 }
 
 [lints.rustdoc]
 all = "warn"
 missing_crate_level_docs = "warn"
 
 [lints.clippy]
-all = {level = "warn", priority = -1}
-pedantic = {level = "warn", priority = -1}
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
 todo = "warn"
 dbg_macro = "warn"
 unwrap_used = "warn"
