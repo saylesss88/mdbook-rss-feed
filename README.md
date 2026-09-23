@@ -25,7 +25,7 @@ for.
 - Reads `date:` from frontmatter (RFC3339 or `YYYY-MM-DD`)
 - Works with or without frontmatter; zero-config by default
 - `strict = true` mode fails the build immediately on any frontmatter parse
-   error instead of warning and continuing. (useful for CI pipelines)
+  error instead of warning and continuing. (useful for CI pipelines)
 
 ## Installation
 
@@ -40,15 +40,14 @@ cargo install mdbook-rss-feed
 cargo install mdbook-rss-feed --features atom,json-feed
 ```
 
-| Feature | Enables |
-|---|---|
-| `atom` | `atom.xml` output |
+| Feature     | Enables            |
+| ----------- | ------------------ |
+| `atom`      | `atom.xml` output  |
 | `json-feed` | `feed.json` output |
 
-If you set `atom = true` or `json-feed = true` in `book.toml` without
-installing the matching feature, the preprocessor prints a warning to stderr
-and skips that output rather than failing the build.
-
+If you set `atom = true` or `json-feed = true` in `book.toml` without installing
+the matching feature, the preprocessor prints a warning to stderr and skips that
+output rather than failing the build.
 
 **Arch Linux AUR**
 
@@ -69,7 +68,6 @@ nix-shell -p mdbook-rss-feed
 ```nix
 environment.systemPackages = [ pkgs.mdbook-rss-feed ]
 ```
-
 
 Version check:
 
@@ -92,7 +90,7 @@ renderers = ["html"]
 # full-preview = true                # use the whole chapter as the preview, not an excerpt
 # atom = true                        # also write atom.xml (needs the `atom` feature)
 # json-feed = true                   # also write feed.json (needs the `json-feed` feature)
-# paginated = true                   # split into rss.xml, rss2.xml, ... 
+# paginated = true                   # split into rss.xml, rss2.xml, ...
 # max-items = 4                      # items per page when paginated
 # default-behavior = "exclude-all"   # opt-in mode: only include chapters marked feed: include
 # strict = true                      # fail the build on a frontmatter parse error
@@ -103,28 +101,26 @@ renderers = ["html"]
 site-url = "https://your-user.github.io/"
 ```
 
-
 `renderers = ["html"]` ensures the preprocessor only runs for HTML builds.
 
-- Omitting `title` falls back to `My mdbook`; omitting `site-url` falls back
-  to `https://example.com`. Set `site-url` to your site's real public base URL.
+- Omitting `title` falls back to `My mdbook`; omitting `site-url` falls back to
+  `https://example.com`. Set `site-url` to your site's real public base URL.
 - With the config above, the feed is published at
   `https://your-user.github.io/rss.xml`.
-- `full-preview = true` lets readers read the whole entry in their feed
-  reader without visiting the site. Better privacy, fewer tracked page
-  views.
+- `full-preview = true` lets readers read the whole entry in their feed reader
+  without visiting the site. Better privacy, fewer tracked page views.
 - `author-email` is required for valid RSS `<author>` elements. Without it,
-  author is omitted from RSS but still appears in Atom and JSON Feed. The
-  author name falls back to the first entry in `[book] authors` when not set
+  author is omitted from RSS but still appears in Atom and JSON Feed. The author
+  name falls back to the first entry in `[book] authors` when not set
   per-chapter.
 - `icon` and `favicon` appear in JSON Feed only. `icon` is shown in timeline
-  views (512×512+ recommended); `favicon` is shown in source/subscription
-  lists (64×64+ recommended). Both should use transparency and be square.
+  views (512×512+ recommended); `favicon` is shown in source/subscription lists
+  (64×64+ recommended). Both should use transparency and be square.
 - `icon` and `favicon` appear in JSON Feed only and are used by feed readers
-  that support JSON Feed 1.1 (e.g. NetNewsWire, Reeder). Feedly and some
-  other readers ignore these fields and use their own favicon fetching instead.
+  that support JSON Feed 1.1 (e.g. NetNewsWire, Reeder). Feedly and some other
+  readers ignore these fields and use their own favicon fetching instead.
   - `strict = true` fails the build immediately on any frontmatter parse error
-  or missing `author-email` when `author` is explicitly set in frontmatter.
+    or missing `author-email` when `author` is explicitly set in frontmatter.
 
 ### Pagination
 
@@ -133,8 +129,8 @@ site-url = "https://your-user.github.io/"
 
 Enable with `paginated = true` and `max-items = N` in `[preprocessor.rss-feed]`.
 
-- Chapters are sorted by frontmatter `date` (newest first), falling back to
-  file modification time.
+- Chapters are sorted by frontmatter `date` (newest first), falling back to file
+  modification time.
 - `rss.xml` holds the newest `N` items; older items spill into `rss2.xml`,
   `rss3.xml`, etc.
 - Paginated RSS feeds include `atom:link` elements with `rel="self"`,
@@ -145,20 +141,16 @@ Enable with `paginated = true` and `max-items = N` in `[preprocessor.rss-feed]`.
 
 Use `strict = true` to catch missing or malformed dates at build time.
 
-To turn pagination back off: set `paginated = false` and `max-items = 0`,
-delete any `rss2.xml`, `atom2.xml`, `feed2.json` (etc.) files from `src/`,
-and run `mdbook clean` before rebuilding.
+To turn pagination back off: set `paginated = false` and `max-items = 0`, delete
+any `rss2.xml`, `atom2.xml`, `feed2.json` (etc.) files from `src/`, and run
+`mdbook clean` before rebuilding.
 
 </details>
 
 ## Frontmatter
 
-There is a new companion crate to this one that can auto inject frontmatter into
-all chapters at once,
-[mdbook-frontmatter-fix](https://crates.io/crates/mdbook-frontmatter-fix)
-
-Frontmatter is optional. Without it, entries fall back to the chapter name
-from `SUMMARY.md`. With it, the same block drives all three feed formats:
+Frontmatter is optional. Without it, entries fall back to the chapter name from
+`SUMMARY.md`. With it, the same block drives all three feed formats:
 
 ```yaml
 ---
@@ -166,8 +158,10 @@ title: Debugging NixOS modules
 date: 2025-11-22
 author: saylesss88
 author-email: example@proton.me
-description: This chapter covers debugging NixOS modules, focusing on tracing
-  module options and evaluating merges.
+id: https://example.com/original-url.html
+description:
+  This chapter covers debugging NixOS modules, focusing on tracing module
+  options and evaluating merges.
 lang: en-US
 tags:
   - Debugging
@@ -178,8 +172,9 @@ tags:
 - `description` is ignored if your chapters have enough body content, it's just
   a fallback.
 - `title` is optional. If omitted, the preprocessor uses the first `# Heading`
-  in the chapter body, then falls back to the chapter name from the `SUMMARY.md`.
-  This means you never need to repeat your headings as a frontmatter field.
+  in the chapter body, then falls back to the chapter name from the
+  `SUMMARY.md`. This means you never need to repeat your headings as a
+  frontmatter field.
 - Dates must be RFC3339 or `YYYY-MM-DD` to sort correctly; add them to every
   chapter for reliable chronological order.
 - If frontmatter is present but fails to parse, a warning is printed to stderr
@@ -189,18 +184,29 @@ tags:
   [mdbook-content-loader](https://crates.io/crates/mdbook-content-loader) can
   enforce typed, validated frontmatter so dates are always present, this makes
   pagination ordering more reliable, but isn't required.
-- `author` in frontmatter sets the per-item author name. RSS 2.0 requires
-  an email address for `<author>` elements, so author is omitted from RSS
-  output unless you set `author-email` in `[preprocessor.rss-feed]`: this
-  keeps the feed valid either way. When set, the output format is
-  `email (Name)`, e.g. `you@example.com (Your Name)`. Atom and JSON Feed
-  don't have this restriction and include the author name directly.
+- `author` in frontmatter sets the per-item author name. RSS 2.0 requires an
+  email address for `<author>` elements, so author is omitted from RSS keeps the
+  feed valid either way. When set, the output format is `email (Name)`, e.g.
+  `you@example.com (Your Name)`. Atom and JSON Feed don't have this restriction
+  and include the author name directly.
+- `author-email`: per-chapter author email, overrides the book-level
+  `author-email` from `[preprocessor.rss-feed]`. Required for the author to
+  appear in RSS `<author>` (which mandates an email address); Atom and JSON Feed
+  include the author name regardless.
+- `id`: stable identifier override for RSS `<guid>`, Atom `<id>`, and JSON Feed
+  `id`. Set this to a chapter's original URL after a redirect to prevent
+  federation tools from treating it as a new post. When absent, the computed
+  chapter URL is used.
 - `tags` in frontmatter to populate `<category>` elements in RSS and Atom, and
   the `tags` array in JSON Feed 1.1.
 - `lang`: BCP-47 language tag for the chapter (e.g. `en`, `fr`, `en-US`).
-  Appears as `"language"` per item in JSON Feed and as `xml:lang` on the
-  feed element in Atom. RSS 2.0 only supports language at the feed level,
-  so this field has no effect on `rss.xml`.
+  Appears as `"language"` per item in JSON Feed and as `xml:lang` on the feed
+  element in Atom. RSS 2.0 only supports language at the feed level, so this
+  field has no effect on `rss.xml`.
+
+There is a new companion crate to this one that can auto inject frontmatter into
+all chapters at once:
+[mdbook-frontmatter-fix](https://crates.io/crates/mdbook-frontmatter-fix)
 
 ### Feed visibility
 
@@ -230,10 +236,10 @@ default-behavior = "include-all"  # default: include every chapter unless feed: 
 # default-behavior = "exclude-all" # opt-in: exclude every chapter unless feed: include
 ```
 
-| `default-behavior` | No `feed:` key | `feed: include` | `feed: exclude` |
-|---|---|---|---|
-| `include-all` (default) | included | included | excluded |
-| `exclude-all` | excluded | included | excluded |
+| `default-behavior`      | No `feed:` key | `feed: include` | `feed: exclude` |
+| ----------------------- | -------------- | --------------- | --------------- |
+| `include-all` (default) | included       | included        | excluded        |
+| `exclude-all`           | excluded       | included        | excluded        |
 
 Per-chapter `feed:` always wins over the book-level default.
 
@@ -276,20 +282,19 @@ with `mdbook-rss-feed: warning:` to catch parse issues manually.
 
 ### How the preview is built
 
-By default, the preview comes from the first 2–3 `<p>` blocks of the
-rendered chapter (up to ~800 characters), skipping any leading
-non-paragraph content like lists or details blocks. Set `description` in
-frontmatter to override this, that text is used whenever the chapter body
-is empty or very short. Omit `description` if you always want the preview
-pulled from the body.
+By default, the preview comes from the first 2–3 `<p>` blocks of the rendered
+chapter (up to ~800 characters), skipping any leading non-paragraph content like
+lists or details blocks. Set `description` in frontmatter to override this, that
+text is used whenever the chapter body is empty or very short. Omit
+`description` if you always want the preview pulled from the body.
 
 ## Syndication formats
 
 - **RSS 2.0** (`rss.xml`): widest reader support; good default.
 - **Atom 1.0** (`atom.xml`, needs the `atom` feature): stricter spec, less
   ambiguity than RSS.
-- **JSON Feed 1.1** (`feed.json`, needs the `json-feed` feature): plain
-  JSON, easy to consume from custom tooling without an XML parser.
+- **JSON Feed 1.1** (`feed.json`, needs the `json-feed` feature): plain JSON,
+  easy to consume from custom tooling without an XML parser.
 
 <details>
 <summary>RSS example</summary>
@@ -313,6 +318,7 @@ pulled from the body.
   </channel>
 </rss>
 ```
+
 _Truncated for brevity._
 </details>
 
@@ -335,6 +341,7 @@ _Truncated for brevity._
   </entry>
 </feed>
 ```
+
 _Truncated for brevity._
 </details>
 
@@ -360,6 +367,7 @@ _Truncated for brevity._
   ]
 }
 ```
+
 _Truncated for brevity._
 </details>
 
@@ -371,18 +379,23 @@ Feeds generated by `mdbook-rss-feed` pass the W3C and JSON Feed validators:
 - [JSON Feed Validator](https://validator.jsonfeed.org/): JSON Feed
 
 For reliable Atom validation, use full timestamps in frontmatter
-(`date: 2026-08-01T10:00:00+00:00`) rather than date-only values 
+(`date: 2026-08-01T10:00:00+00:00`) rather than date-only values
 (`date: 2026-08-01`). Date-only values resolve to `00:00:00+00:00`, so multiple
 entries released on the same day will share an identical `atom:updated` value,
 which the validator flags as a recommendation.
 
-If you want to add a valid RSS badge to your book, the W3C provides one.
-Add it to any page in your `src/` directory:
+If you want to add a valid RSS badge to your book, the W3C provides one. Add it
+to any page in your `src/` directory:
 
 ```html
-<a href="https://validator.w3.org/feed/check.cgi?url=https%3A//your-user.github.io/rss.xml">
-  <img src="https://validator.w3.org/feed/images/valid-rss-rogers.png"
-       alt="[Valid RSS]" title="Validate my RSS feed" />
+<a
+  href="https://validator.w3.org/feed/check.cgi?url=https%3A//your-user.github.io/rss.xml"
+>
+  <img
+    src="https://validator.w3.org/feed/images/valid-rss-rogers.png"
+    alt="[Valid RSS]"
+    title="Validate my RSS feed"
+  />
 </a>
 ```
 
@@ -396,32 +409,31 @@ Replace the URL with your own feed address.
 If you use preprocessors like
 [mdbook-content-loader](https://crates.io/crates/mdbook-content-loader) or
 [mdbook-content-collections](https://crates.io/crates/mdbook-content-collections)
-to inject intro snippets into chapters, those snippets are ordinary Markdown
-by the time `mdbook-rss-feed` sees them. Since the preview is built from the
-first real `<p>` blocks in the rendered chapter, an injected intro paragraph
-becomes the feed preview automatically — no extra config needed.
+to inject intro snippets into chapters, those snippets are ordinary Markdown by
+the time `mdbook-rss-feed` sees them. Since the preview is built from the first
+real `<p>` blocks in the rendered chapter, an injected intro paragraph becomes
+the feed preview automatically — no extra config needed.
 
 Combined with typed frontmatter from a content loader, you get consistent
-ordering between your book's index and the RSS feed, plus cleaner previews
-when snippets are well-structured.
+ordering between your book's index and the RSS feed, plus cleaner previews when
+snippets are well-structured.
 
 </details>
 
 ### Hiding frontmatter in rendered HTML
 
-mdBook doesn't strip YAML frontmatter on its own, so the raw block can leak
-into the rendered HTML. Use
-[mdbook-frontmatter-strip](https://crates.io/crates/mdbook-frontmatter-strip)
-to remove it.
+mdBook doesn't strip YAML frontmatter on its own, so the raw block can leak into
+the rendered HTML. Use
+[mdbook-frontmatter-strip](https://crates.io/crates/mdbook-frontmatter-strip) to
+remove it.
 
-> [!NOTE]
-> Run `mdbook-rss-feed` before `mdbook-frontmatter-strip` so the feed sees the
-> frontmatter before it is stripped. Add to `book.toml`:
+> [!NOTE] Run `mdbook-rss-feed` before `mdbook-frontmatter-strip` so the feed
+> sees the frontmatter before it is stripped. Add to `book.toml`:
 >
 > ```rs
 > [preprocessor.rss-feed]
 > before = ["frontmatter-strip"]
->```
+> ```
 
 ## RSS button for the mdBook header
 
@@ -460,8 +472,7 @@ additional-js = ["theme/rss-button.js"]
 
 `theme/rss-button.js`:
 
-> [!NOTE]
-> Change the `rssLink.href` to your feed URL before adding this file.
+> [!NOTE] Change the `rssLink.href` to your feed URL before adding this file.
 
 ```js
 document.addEventListener("DOMContentLoaded", () => {
@@ -496,15 +507,14 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 ```
 
-This pins a small RSS icon to the top right of the book, linking to your
-feed.
+This pins a small RSS icon to the top right of the book, linking to your feed.
 
 </details>
 
 ## Example
 
-
-The [`example/`](https://github.com/saylesss88/mdbook-rss-feed/tree/main/example)
+The
+[`example/`](https://github.com/saylesss88/mdbook-rss-feed/tree/main/example)
 directory contains a minimal working mdBook with pagination enabled, showing
 exactly what the generated `rss.xml`, `atom.xml`, and `feed.json` files look
 like across multiple pages.
