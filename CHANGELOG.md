@@ -5,32 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2026-09-23
-
-### Added
-
-- add stable id frontmatter field for feed items
-- **(json_feed)**add icon and favicon to JsonFeed
-- **(feed)**tie in author and author_email, add book_author, icon, and favicon to FeedOptions
-- **(frontmatter)**add optional author_email field to structs for RSS
-- **(lib)**re-export ItemMeta from lib
-- **(binary)**Tie in lang support to the binary
-- **(json_feed)**add lang support to json feed
-- **(atom_feed)**tie in ItemMeta and feed-level lang support for Atom
-- **(feed)**add <language> support
-- **(frontmatter)**add lang field to RawFrontmatter and Frontmatter structs
-- add <category> support
+## [2.0.1] - 2026-09-24
 
 ### Fixed
 
-- README add author-email field in frontmatter docs
-- **(frontmatter)**feed.json had
-- **(frontmatter)**YAML expects author-email not author_email
-- **(feed)**fix eprintln! output
-- **(frontmatter)**add eprintln! warning users of adding author to frontmatter without author-email being set in book.toml
-- **(frontmatter)**change tags field in RawFrontmatter to be an Option for tests to pass
-- **(flake.nix)**correct license and add buildFeatures override support
-- **(feed)**test missing a lang field
+- CHANGELOG
+
+## [2.0.0] - 2026-09-24
 
 ### Added
 
