@@ -125,12 +125,22 @@ fn atom_link(href: &str, rel: &str) -> Extension {
         .build()
 }
 
-/// Compute the RSS filename for a given zero-based page index.
-fn rss_filename(page_idx: usize) -> String {
+/// Compute the paginated filename for a base name and zero-based page index.
+///
+/// The first page uses `base` unchanged. Subsequent pages start page
+/// numbers from 2, inserted before the last extension (e.g. `my.feed.xml` =>
+/// `my.feed2.xml`). If `base` has no extension, including beginning with a dot
+/// with no other extension, the number is appended to the end instead.
+#[must_use]
+pub fn paginated_filename(base: &str, page_idx: usize) -> String {
     if page_idx == 0 {
-        "rss.xml".to_string()
+        base.to_string()
+    } else if let Some((left, ext)) = base.rsplit_once('.')
+        && !left.is_empty()
+    {
+        format!("{left}{}.{ext}", page_idx + 1)
     } else {
-        format!("rss{}.xml", page_idx + 1)
+        format!("{base}{}", page_idx + 1)
     }
 }
 
@@ -148,15 +158,15 @@ fn build_channel(
     total_pages: usize,
 ) -> Channel {
     // Atom namespace links for pagination discovery.
-    let self_url = format!("{base_url}/{}", rss_filename(page_idx));
+    let self_url = format!("{base_url}/{}", paginated_filename("rss.xml", page_idx));
     let mut atom_links = vec![atom_link(&self_url, "self")];
 
     if page_idx > 0 {
-        let prev_url = format!("{base_url}/{}", rss_filename(page_idx - 1));
+        let prev_url = format!("{base_url}/{}", paginated_filename("rss.xml", page_idx - 1));
         atom_links.push(atom_link(&prev_url, "prev"));
     }
     if page_idx + 1 < total_pages {
-        let next_url = format!("{base_url}/{}", rss_filename(page_idx + 1));
+        let next_url = format!("{base_url}/{}", paginated_filename("rss.xml", page_idx + 1));
         atom_links.push(atom_link(&next_url, "next"));
     }
 
@@ -217,7 +227,7 @@ fn paginate(
             total_pages,
         );
         pages.push(FeedPage {
-            filename: rss_filename(page_idx),
+            filename: paginated_filename("rss.xml", page_idx),
             channel,
             item_meta: meta[start..end].to_vec(),
         });
@@ -428,15 +438,43 @@ mod tests {
     }
 
     #[test]
-    fn rss_filename_page_zero_is_rss_xml() {
-        assert_eq!(rss_filename(0), "rss.xml");
+    fn paginated_filename_page_zero_is_base_unchanged() {
+        assert_eq!(paginated_filename("rss.xml", 0), "rss.xml");
+        assert_eq!(paginated_filename("feed.xml", 0), "feed.xml");
+        assert_eq!(paginated_filename("my.feed.xml", 0), "my.feed.xml");
+        assert_eq!(paginated_filename("feed", 0), "feed");
+        assert_eq!(paginated_filename(".feed", 0), ".feed");
     }
 
     #[test]
-    fn rss_filename_subsequent_pages_are_numbered() {
-        assert_eq!(rss_filename(1), "rss2.xml");
-        assert_eq!(rss_filename(2), "rss3.xml");
-        assert_eq!(rss_filename(9), "rss10.xml");
+    fn paginated_filename_default_rss_pages_are_numbered() {
+        assert_eq!(paginated_filename("rss.xml", 1), "rss2.xml");
+        assert_eq!(paginated_filename("rss.xml", 2), "rss3.xml");
+        assert_eq!(paginated_filename("rss.xml", 9), "rss10.xml");
+    }
+
+    #[test]
+    fn paginated_filename_custom_name_is_numbered() {
+        assert_eq!(paginated_filename("feed.xml", 1), "feed2.xml");
+        assert_eq!(paginated_filename("index.json", 2), "index3.json");
+    }
+
+    #[test]
+    fn paginated_filename_multiple_dots_puts_number_before_last_extension() {
+        assert_eq!(paginated_filename("a.cool.feed.xml", 1), "a.cool.feed2.xml");
+        assert_eq!(paginated_filename("archive.tar.gz", 1), "archive.tar2.gz");
+    }
+
+    #[test]
+    fn paginated_filename_without_extension_appends_number() {
+        assert_eq!(paginated_filename("feed", 1), "feed2");
+        assert_eq!(paginated_filename("feed", 9), "feed10");
+    }
+
+    #[test]
+    fn paginated_filename_leading_dot_appends_number() {
+        assert_eq!(paginated_filename(".feed", 1), ".feed2");
+        assert_eq!(paginated_filename(".feed", 9), ".feed10");
     }
 
     #[test]
@@ -637,7 +675,7 @@ mod tests {
                 .find(|l| l.attrs().get("rel").map(String::as_str) == Some("self"))
                 .expect("rel=self link");
             let href = self_link.attrs().get("href").unwrap();
-            let expected_filename = rss_filename(idx);
+            let expected_filename = paginated_filename("rss.xml", idx);
             assert!(
                 href.ends_with(&expected_filename),
                 "page {idx} self link '{href}' should end with '{expected_filename}'"
