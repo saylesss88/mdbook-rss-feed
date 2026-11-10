@@ -135,6 +135,7 @@ impl FeedConfig {
             full_preview: self.full_preview,
             max_items: self.max_items,
             paginated: self.paginated,
+            rss_filename: "rss.xml",
             default_behavior: self.default_behavior.clone(),
             strict: self.strict,
             author_email: self.author_email.clone(),
