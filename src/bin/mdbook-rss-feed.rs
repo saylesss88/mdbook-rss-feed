@@ -34,11 +34,16 @@ struct FeedConfig {
     full_preview: bool,
     paginated: bool,
     max_items: usize,
+    rss_filename: String,
     default_behavior: DefaultBehavior,
     #[cfg_attr(not(feature = "json-feed"), allow(dead_code))]
     json_enabled: bool,
+    #[cfg_attr(not(feature = "json-feed"), allow(dead_code))]
+    json_feed_filename: String,
     #[cfg_attr(not(feature = "atom"), allow(dead_code))]
     atom_enabled: bool,
+    #[cfg_attr(not(feature = "atom"), allow(dead_code))]
+    atom_filename: String,
     #[cfg_attr(not(feature = "atom"), allow(dead_code))]
     authors: Vec<String>,
     strict: bool,
@@ -89,15 +94,30 @@ impl FeedConfig {
                 .pointer("/config/preprocessor/rss-feed/max-items")
                 .and_then(Value::as_u64)
                 .map_or(0, |n| usize::try_from(n).unwrap_or(usize::MAX)),
+            rss_filename: context
+                .pointer("/config/preprocessor/rss-feed/rss-filename")
+                .and_then(Value::as_str)
+                .unwrap_or("rss.xml")
+                .to_string(),
             default_behavior,
             json_enabled: context
                 .pointer("/config/preprocessor/rss-feed/json-feed")
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
+            json_feed_filename: context
+                .pointer("/config/preprocessor/rss-feed/json-feed-filename")
+                .and_then(Value::as_str)
+                .unwrap_or("feed.json")
+                .to_string(),
             atom_enabled: context
                 .pointer("/config/preprocessor/rss-feed/atom")
                 .and_then(Value::as_bool)
                 .unwrap_or(false),
+            atom_filename: context
+                .pointer("/config/preprocessor/rss-feed/atom-filename")
+                .and_then(Value::as_str)
+                .unwrap_or("atom.xml")
+                .to_string(),
             authors: context
                 .pointer("/config/book/authors")
                 .and_then(Value::as_array)
@@ -135,7 +155,7 @@ impl FeedConfig {
             full_preview: self.full_preview,
             max_items: self.max_items,
             paginated: self.paginated,
-            rss_filename: "rss.xml",
+            rss_filename: &self.rss_filename,
             default_behavior: self.default_behavior.clone(),
             strict: self.strict,
             author_email: self.author_email.clone(),
@@ -165,7 +185,7 @@ fn write_json_pages(
     config: &FeedConfig,
     pages: &[mdbook_rss_feed::FeedPage],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use mdbook_rss_feed::rss_to_json_feed;
+    use mdbook_rss_feed::{paginated_filename, rss_to_json_feed};
 
     if !config.json_enabled {
         return Ok(());
@@ -173,15 +193,14 @@ fn write_json_pages(
     let base = config.site_url.trim_end_matches('/');
     let total = pages.len();
     for (page_idx, page) in pages.iter().enumerate() {
-        let suffix = if page_idx == 0 {
-            String::new()
-        } else {
-            (page_idx + 1).to_string()
-        };
-        let self_url = format!("{base}/feed{suffix}.json");
+        let filename = paginated_filename(&config.json_feed_filename, page_idx);
+        let self_url = format!("{base}/{filename}");
 
         let next_url = if page_idx + 1 < total {
-            Some(format!("{base}/feed{}.json", page_idx + 2))
+            Some(format!(
+                "{base}/{}",
+                paginated_filename(&config.json_feed_filename, page_idx + 1)
+            ))
         } else {
             None
         };
@@ -193,11 +212,7 @@ fn write_json_pages(
             config.icon.as_deref(),
             config.favicon.as_deref(),
         );
-        let json_path = config.src_dir.join(if page_idx == 0 {
-            "feed.json".to_string()
-        } else {
-            format!("feed{}.json", page_idx + 1)
-        });
+        let json_path = config.src_dir.join(&filename);
         fs::write(&json_path, serde_json::to_vec_pretty(&json_feed)?)?;
         let json_bytes = serde_json::to_vec_pretty(&json_feed)?;
         eprintln!(
@@ -229,7 +244,7 @@ fn write_json_pages(
 
 #[cfg(feature = "atom")]
 fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) -> io::Result<()> {
-    use mdbook_rss_feed::rss_to_atom;
+    use mdbook_rss_feed::{paginated_filename, rss_to_atom};
 
     if !config.atom_enabled {
         return Ok(());
@@ -237,25 +252,22 @@ fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) ->
     let base = config.site_url.trim_end_matches('/');
     let total = pages.len();
     for (page_idx, page) in pages.iter().enumerate() {
-        let suffix = if page_idx == 0 {
-            String::new()
-        } else {
-            (page_idx + 1).to_string()
-        };
-        let self_url = format!("{base}/atom{suffix}.xml");
+        let filename = paginated_filename(&config.atom_filename, page_idx);
+        let self_url = format!("{base}/{filename}");
         // next points to older page, prev points to newer page.
         let next_url = if page_idx + 1 < total {
-            Some(format!("{base}/atom{}.xml", page_idx + 2))
+            Some(format!(
+                "{base}/{}",
+                paginated_filename(&config.atom_filename, page_idx + 1)
+            ))
         } else {
             None
         };
         let prev_url = if page_idx > 0 {
-            let prev_suffix = if page_idx == 1 {
-                String::new()
-            } else {
-                page_idx.to_string()
-            };
-            Some(format!("{base}/atom{prev_suffix}.xml"))
+            Some(format!(
+                "{base}/{}",
+                paginated_filename(&config.atom_filename, page_idx - 1)
+            ))
         } else {
             None
         };
@@ -267,11 +279,7 @@ fn write_atom_pages(config: &FeedConfig, pages: &[mdbook_rss_feed::FeedPage]) ->
             &config.authors,
             &page.item_meta,
         );
-        let atom_path = config.src_dir.join(if page_idx == 0 {
-            "atom.xml".to_string()
-        } else {
-            format!("atom{}.xml", page_idx + 1)
-        });
+        let atom_path = config.src_dir.join(&filename);
         fs::write(&atom_path, atom_feed.to_string())?;
         eprintln!(
             "Writing Atom page {} ({} bytes)",
