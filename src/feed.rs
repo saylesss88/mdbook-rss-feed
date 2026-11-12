@@ -33,10 +33,11 @@ pub struct ItemMeta {
 
 /// One generated RSS feed file.
 ///
-/// `filename` is the relative file name written into `src/` (for example
-/// `rss.xml` or `rss2.xml`). `channel` is the corresponding RSS 2.0 channel.
+/// `filename` is the relative file name written into `src/`, derived from
+/// [`FeedOptions::rss_filename`] (for example `rss.xml` or `rss2.xml` with the
+/// default). `channel` is the corresponding RSS 2.0 channel.
 pub struct FeedPage {
-    /// e.g. "rss.xml", "rss2.xml"
+    /// e.g. "rss.xml", "rss2.xml" with the default `rss_filename`
     pub filename: String,
     pub channel: Channel,
     // Per-item metadata, parallel to `channel.items()`.
@@ -45,9 +46,10 @@ pub struct FeedPage {
 
 /// Result of building feeds for a book.
 ///
-/// In simple setups this will contain a single `rss.xml` page. When
-/// pagination is enabled it contains multiple [`FeedPage`]s (e.g. `rss.xml`,
-/// `rss2.xml`, `rss3.xml`, …) each with a slice of the overall item list.
+/// In simple setups this will contain a single page named after
+/// [`FeedOptions::rss_filename`]. When pagination is enabled it contains
+/// multiple [`FeedPage`]s (e.g. `rss.xml`, `rss2.xml`, `rss3.xml`, … with the
+/// default) each with a slice of the overall item list.
 pub struct BuildResult {
     pub pages: Vec<FeedPage>,
 }
@@ -82,6 +84,7 @@ pub struct FeedOptions<'a> {
     pub full_preview: bool,
     pub max_items: usize,
     pub paginated: bool,
+    pub rss_filename: &'a str,
     pub default_behavior: DefaultBehavior,
     pub strict: bool,
     pub author_email: Option<String>,
@@ -125,12 +128,22 @@ fn atom_link(href: &str, rel: &str) -> Extension {
         .build()
 }
 
-/// Compute the RSS filename for a given zero-based page index.
-fn rss_filename(page_idx: usize) -> String {
+/// Compute the paginated filename for a base name and zero-based page index.
+///
+/// The first page uses `base` unchanged. Subsequent pages start page
+/// numbers from 2, inserted before the last extension (e.g. `my.feed.xml` =>
+/// `my.feed2.xml`). If `base` has no extension, including beginning with a dot
+/// with no other extension, the number is appended to the end instead.
+#[must_use]
+pub fn paginated_filename(base: &str, page_idx: usize) -> String {
     if page_idx == 0 {
-        "rss.xml".to_string()
+        base.to_string()
+    } else if let Some((left, ext)) = base.rsplit_once('.')
+        && !left.is_empty()
+    {
+        format!("{left}{}.{ext}", page_idx + 1)
     } else {
-        format!("rss{}.xml", page_idx + 1)
+        format!("{base}{}", page_idx + 1)
     }
 }
 
@@ -140,23 +153,31 @@ fn rss_filename(page_idx: usize) -> String {
 /// - `rel="prev"`, the newer page, when this is not the first page
 /// - `rel="next"`, the older page, when this is not the last page
 fn build_channel(
-    title: &str,
+    opts: &FeedOptions<'_>,
     base_url: &str,
-    description: &str,
     items: &[Item],
     page_idx: usize,
     total_pages: usize,
 ) -> Channel {
     // Atom namespace links for pagination discovery.
-    let self_url = format!("{base_url}/{}", rss_filename(page_idx));
+    let self_url = format!(
+        "{base_url}/{}",
+        paginated_filename(opts.rss_filename, page_idx)
+    );
     let mut atom_links = vec![atom_link(&self_url, "self")];
 
     if page_idx > 0 {
-        let prev_url = format!("{base_url}/{}", rss_filename(page_idx - 1));
+        let prev_url = format!(
+            "{base_url}/{}",
+            paginated_filename(opts.rss_filename, page_idx - 1)
+        );
         atom_links.push(atom_link(&prev_url, "prev"));
     }
     if page_idx + 1 < total_pages {
-        let next_url = format!("{base_url}/{}", rss_filename(page_idx + 1));
+        let next_url = format!(
+            "{base_url}/{}",
+            paginated_filename(opts.rss_filename, page_idx + 1)
+        );
         atom_links.push(atom_link(&next_url, "next"));
     }
 
@@ -172,9 +193,9 @@ fn build_channel(
     extensions.insert("atom".to_string(), inner);
 
     ChannelBuilder::default()
-        .title(title)
+        .title(opts.title)
         .link(format!("{base_url}/"))
-        .description(description)
+        .description(opts.description)
         .items(items.to_vec())
         .generator(Some(format!(
             "mdbook-rss-feed {}",
@@ -196,9 +217,9 @@ fn paginate(
 
     let should_paginate = opts.paginated && opts.max_items > 0 && items.len() > opts.max_items;
     if !should_paginate {
-        let channel = build_channel(opts.title, base_url, opts.description, items, 0, 1);
+        let channel = build_channel(opts, base_url, items, 0, 1);
         return vec![FeedPage {
-            filename: "rss.xml".to_string(),
+            filename: opts.rss_filename.to_string(),
             channel,
             item_meta: meta.to_vec(),
         }];
@@ -208,16 +229,9 @@ fn paginate(
     for page_idx in 0..total_pages {
         let start = page_idx * opts.max_items;
         let end = (start + opts.max_items).min(items.len());
-        let channel = build_channel(
-            opts.title,
-            base_url,
-            opts.description,
-            &items[start..end],
-            page_idx,
-            total_pages,
-        );
+        let channel = build_channel(opts, base_url, &items[start..end], page_idx, total_pages);
         pages.push(FeedPage {
-            filename: rss_filename(page_idx),
+            filename: paginated_filename(opts.rss_filename, page_idx),
             channel,
             item_meta: meta[start..end].to_vec(),
         });
@@ -377,6 +391,7 @@ mod tests {
             full_preview: false,
             max_items: 10,
             paginated: false,
+            rss_filename: "rss.xml",
             default_behavior: DefaultBehavior::IncludeAll,
             strict: false,
             author_email: None,
@@ -428,15 +443,43 @@ mod tests {
     }
 
     #[test]
-    fn rss_filename_page_zero_is_rss_xml() {
-        assert_eq!(rss_filename(0), "rss.xml");
+    fn paginated_filename_page_zero_is_base_unchanged() {
+        assert_eq!(paginated_filename("rss.xml", 0), "rss.xml");
+        assert_eq!(paginated_filename("feed.xml", 0), "feed.xml");
+        assert_eq!(paginated_filename("my.feed.xml", 0), "my.feed.xml");
+        assert_eq!(paginated_filename("feed", 0), "feed");
+        assert_eq!(paginated_filename(".feed", 0), ".feed");
     }
 
     #[test]
-    fn rss_filename_subsequent_pages_are_numbered() {
-        assert_eq!(rss_filename(1), "rss2.xml");
-        assert_eq!(rss_filename(2), "rss3.xml");
-        assert_eq!(rss_filename(9), "rss10.xml");
+    fn paginated_filename_default_rss_pages_are_numbered() {
+        assert_eq!(paginated_filename("rss.xml", 1), "rss2.xml");
+        assert_eq!(paginated_filename("rss.xml", 2), "rss3.xml");
+        assert_eq!(paginated_filename("rss.xml", 9), "rss10.xml");
+    }
+
+    #[test]
+    fn paginated_filename_custom_name_is_numbered() {
+        assert_eq!(paginated_filename("feed.xml", 1), "feed2.xml");
+        assert_eq!(paginated_filename("index.json", 2), "index3.json");
+    }
+
+    #[test]
+    fn paginated_filename_multiple_dots_puts_number_before_last_extension() {
+        assert_eq!(paginated_filename("a.cool.feed.xml", 1), "a.cool.feed2.xml");
+        assert_eq!(paginated_filename("archive.tar.gz", 1), "archive.tar2.gz");
+    }
+
+    #[test]
+    fn paginated_filename_without_extension_appends_number() {
+        assert_eq!(paginated_filename("feed", 1), "feed2");
+        assert_eq!(paginated_filename("feed", 9), "feed10");
+    }
+
+    #[test]
+    fn paginated_filename_leading_dot_appends_number() {
+        assert_eq!(paginated_filename(".feed", 1), ".feed2");
+        assert_eq!(paginated_filename(".feed", 9), ".feed10");
     }
 
     #[test]
@@ -619,6 +662,65 @@ mod tests {
     }
 
     #[test]
+    fn custom_rss_filename_without_pagination() {
+        let articles = vec![make_article("Post", "post.md", None, None)];
+        let mut opts = default_opts("https://example.com");
+        opts.rss_filename = "feed.xml";
+        let result = build_feed_from_articles(articles, &opts);
+        assert_eq!(result.pages.len(), 1);
+        assert_eq!(result.pages[0].filename, "feed.xml");
+    }
+
+    #[test]
+    fn custom_rss_filename_pages_are_numbered() {
+        let articles: Vec<Article> = (0..11)
+            .map(|i| make_article(&format!("Post {i}"), &format!("{i}.md"), None, None))
+            .collect();
+        let mut opts = default_opts("https://example.com");
+        opts.max_items = 5;
+        opts.paginated = true;
+        opts.rss_filename = "feed.xml";
+        let result = build_feed_from_articles(articles, &opts);
+        assert_eq!(result.pages[0].filename, "feed.xml");
+        assert_eq!(result.pages[1].filename, "feed2.xml");
+        assert_eq!(result.pages[2].filename, "feed3.xml");
+    }
+
+    #[test]
+    fn custom_rss_filename_atom_links_use_custom_name() {
+        let articles: Vec<Article> = (0..11)
+            .map(|i| make_article(&format!("Post {i}"), &format!("{i}.md"), None, None))
+            .collect();
+        let mut opts = default_opts("https://example.com");
+        opts.max_items = 5;
+        opts.paginated = true;
+        opts.rss_filename = "feed.xml";
+        let result = build_feed_from_articles(articles, &opts);
+
+        // The middle page has all three links.
+        let links = &result.pages[1].channel.extensions()["atom"]["link"];
+        let href_for = |rel: &str| {
+            links
+                .iter()
+                .find(|l| l.attrs().get("rel").map(String::as_str) == Some(rel))
+                .and_then(|l| l.attrs().get("href"))
+                .cloned()
+        };
+        assert_eq!(
+            href_for("self").as_deref(),
+            Some("https://example.com/feed2.xml")
+        );
+        assert_eq!(
+            href_for("prev").as_deref(),
+            Some("https://example.com/feed.xml")
+        );
+        assert_eq!(
+            href_for("next").as_deref(),
+            Some("https://example.com/feed3.xml")
+        );
+    }
+
+    #[test]
     fn pagination_atom_self_link_matches_filename() {
         let articles: Vec<Article> = (0..11)
             .map(|i| make_article(&format!("Post {i}"), &format!("{i}.md"), None, None))
@@ -637,7 +739,7 @@ mod tests {
                 .find(|l| l.attrs().get("rel").map(String::as_str) == Some("self"))
                 .expect("rel=self link");
             let href = self_link.attrs().get("href").unwrap();
-            let expected_filename = rss_filename(idx);
+            let expected_filename = paginated_filename(opts.rss_filename, idx);
             assert!(
                 href.ends_with(&expected_filename),
                 "page {idx} self link '{href}' should end with '{expected_filename}'"

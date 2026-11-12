@@ -22,6 +22,7 @@ for.
 - Optional pagination (`rss2.xml`, `rss3.xml`, …) with `atom:link` pagination
   discovery links so feed readers can find adjacent pages
 - Optional Atom (`atom.xml`) and JSON Feed (`feed.json`) output alongside RSS
+- Configurable output filenames for each format
 - Reads `date:` from frontmatter (RFC3339 or `YYYY-MM-DD`)
 - Works with or without frontmatter; zero-config by default
 - `strict = true` mode fails the build immediately on any frontmatter parse
@@ -40,10 +41,10 @@ cargo install mdbook-rss-feed
 cargo install mdbook-rss-feed --features atom,json-feed
 ```
 
-| Feature     | Enables            |
-| ----------- | ------------------ |
-| `atom`      | `atom.xml` output  |
-| `json-feed` | `feed.json` output |
+| Feature     | Enables                                |
+| ----------- | -------------------------------------- |
+| `atom`      | Atom output (default `atom.xml`)       |
+| `json-feed` | JSON Feed output (default `feed.json`) |
 
 If you set `atom = true` or `json-feed = true` in `book.toml` without installing
 the matching feature, the preprocessor prints a warning to stderr and skips that
@@ -90,6 +91,9 @@ renderers = ["html"]
 # full-preview = true                # use the whole chapter as the preview, not an excerpt
 # atom = true                        # also write atom.xml (needs the `atom` feature)
 # json-feed = true                   # also write feed.json (needs the `json-feed` feature)
+# rss-filename = "feed.xml"          # RSS output filename (default "rss.xml")
+# atom-filename = "index.atom"       # Atom output filename (default "atom.xml")
+# json-feed-filename = "posts.json"  # JSON Feed output filename (default "feed.json")
 # paginated = true                   # split into rss.xml, rss2.xml, ...
 # max-items = 4                      # items per page when paginated
 # default-behavior = "exclude-all"   # opt-in mode: only include chapters marked feed: include
@@ -106,7 +110,16 @@ site-url = "https://your-user.github.io/"
 - Omitting `title` falls back to `My mdbook`; omitting `site-url` falls back to
   `https://example.com`. Set `site-url` to your site's real public base URL.
 - With the config above, the feed is published at
-  `https://your-user.github.io/rss.xml`.
+  `https://your-user.github.io/rss.xml`. The URL follows `rss-filename`, so
+  uncommenting `rss-filename = "feed.xml"` publishes it at
+  `https://your-user.github.io/feed.xml` instead.
+- `rss-filename`, `atom-filename`, and `json-feed-filename` must be plain
+  filenames written directly into `src/`. They can't be empty, contain
+  whitespace or path separators, or be `.` or `..`. An invalid name prints a
+  warning and falls back to its default. If the names of enabled formats would
+  overwrite each other, including numbered pages if `paginated = true`, all
+  three fall back to their defaults. With `strict = true`, either problem fails
+  the build instead.
 - `full-preview = true` lets readers read the whole entry in their feed reader
   without visiting the site. Better privacy, fewer tracked page views.
 - `author-email` is required for valid RSS `<author>` elements. Without it,
@@ -131,13 +144,17 @@ Enable with `paginated = true` and `max-items = N` in `[preprocessor.rss-feed]`.
 
 - Chapters are sorted by frontmatter `date` (newest first), falling back to file
   modification time.
-- `rss.xml` holds the newest `N` items; older items spill into `rss2.xml`,
-  `rss3.xml`, etc.
+- The first page (e.g. `rss.xml`) holds the newest `N` items; older items spill
+  into `rss2.xml`, `rss3.xml`, etc.
 - Paginated RSS feeds include `atom:link` elements with `rel="self"`,
   `rel="next"`, and `rel="prev"` so feed readers can discover adjacent pages.
-- If `atom`/`json-feed` are enabled, their paginated pages mirror the RSS pages
-  (`atom2.xml`, `feed2.json`, …). Atom pages include `rel="next"`/ `rel="prev"`
-  links; JSON Feed pages include `next_url`, per the JSON Feed 1.1 spec.
+- If `atom`/`json-feed` are enabled, their paginated pages mirror the RSS
+  pages (e.g. `atom2.xml`, `feed2.json`, …). Atom pages include `rel="next"`/
+  `rel="prev"` links; JSON Feed pages include `next_url`, per the JSON Feed
+  1.1 spec.
+- If using a custom filename, page numbers go before the last extension, so
+  `rss-filename = "feed.xml"` gives `feed.xml`, `feed2.xml`, `feed3.xml`, etc. A
+  name without an extension gets the number appended (`feed`, `feed2`, …).
 
 Use `strict = true` to catch missing or malformed dates at build time.
 
@@ -276,6 +293,7 @@ strict = true
 With `strict = true`, any chapter whose frontmatter cannot be parsed will cause
 `mdbook build` to exit with a non-zero code. This is useful in CI pipelines
 where a silent fallback would produce a wrong feed without any visible failure.
+Strict mode also fails the build on an invalid or colliding output filename.
 
 Without strict mode, check stderr output during mdbook build for lines starting
 with `mdbook-rss-feed: warning:` to catch parse issues manually.
