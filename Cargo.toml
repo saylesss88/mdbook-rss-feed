@@ -26,8 +26,6 @@ path = "src/bin/mdbook-rss-feed.rs"
 
 [dependencies]
 walkdir = "2"
-# Builders are off: the `builders` feature also turns on `atom_syndication`,
-# which would pull chrono into every build.
 rss = { version = "2.1.0", default-features = false }
 serde = { version = "1", features = ["serde_derive"], default-features = false }
 jiff = { version = "1.0.1", default-features = false, features = ["std"] }
