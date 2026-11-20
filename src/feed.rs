@@ -1023,6 +1023,27 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "atom")]
+    #[test]
+    fn atom_feed_lang_follows_channel_language() {
+        use crate::atom_feed::rss_to_atom;
+
+        // Mixed feed whose first item is French: must not be labeled French.
+        let mut articles = mixed_language_articles();
+        articles.rotate_left(1);
+        let result = build_feed_from_articles(articles, &default_opts("https://example.com"));
+        let page = &result.pages[0];
+        let atom = rss_to_atom(&page.channel, None, None, None, &[], &page.item_meta);
+        assert_eq!(atom.lang(), None);
+
+        let mut opts = default_opts("https://example.com");
+        opts.language = Some("fr");
+        let result = build_feed_from_articles(mixed_language_articles(), &opts);
+        let page = &result.pages[0];
+        let atom = rss_to_atom(&page.channel, None, None, None, &[], &page.item_meta);
+        assert_eq!(atom.lang(), Some("fr"));
+    }
+
     #[cfg(feature = "json-feed")]
     #[test]
     fn json_feed_language_follows_channel_language() {

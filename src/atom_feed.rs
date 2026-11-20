@@ -128,8 +128,10 @@ pub fn rss_to_atom(
     feed.set_title(channel.title().to_string());
     feed.set_updated(latest);
 
-    // Set feed-level xml:lang from the first item that declares one.
-    if let Some(lang) = item_meta.iter().find_map(|m| m.lang.as_deref()) {
+    // Feed-level xml:lang follows the channel's language, which is only set
+    // for single-language feeds, so a mixed feed isn't labeled with whichever
+    // language its first entry happens to use.
+    if let Some(lang) = channel.language() {
         feed.set_lang(Some(lang.to_string()));
     }
 
