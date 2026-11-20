@@ -19,7 +19,7 @@ fn systemtime_to_utc(st: SystemTime) -> DateTime<Utc> {
 /// `Article` holds the frontmatter, full Markdown body, and the path
 /// relative to the mdBook `src` root. It is the internal representation
 /// used before converting to RSS items.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Article {
     pub fm: FrontMatter,
     pub content: String,

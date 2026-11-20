@@ -85,6 +85,14 @@ pub struct FeedOptions<'a> {
     pub max_items: usize,
     pub paginated: bool,
     pub rss_filename: &'a str,
+    /// Build a single-language feed.
+    ///
+    /// When set, only chapters whose frontmatter `lang` matches this BCP-47
+    /// language range are included (see [`lang_matches`]), and the value is
+    /// declared as the feed's language. When `None`, every chapter is
+    /// eligible and the feed's language is only declared if all of its items
+    /// share the same `lang`.
+    pub language: Option<&'a str>,
     pub default_behavior: DefaultBehavior,
     pub strict: bool,
     pub author_email: Option<String>,
@@ -102,6 +110,47 @@ fn article_is_included(article: &Article, default_behavior: &DefaultBehavior) ->
         // No override: fall back to the book-level default.
         None => *default_behavior == DefaultBehavior::IncludeAll,
     }
+}
+
+/// Return `true` if a chapter's `lang` falls within the language `range`.
+///
+/// Uses RFC 4647 basic filtering: the comparison is case-insensitive, and a
+/// range matches the same tag or any more specific tag that starts with it
+/// followed by `-` (so `fr` matches `fr` and `fr-CA`, but `fr-CA` doesn't
+/// match `fr`). A chapter without a `lang` never matches.
+#[must_use]
+pub fn lang_matches(lang: Option<&str>, range: &str) -> bool {
+    let Some(lang) = lang else {
+        return false;
+    };
+    let (lang, range) = (lang.trim(), range.trim());
+    if range.is_empty() {
+        return false;
+    }
+    lang.eq_ignore_ascii_case(range)
+        || (lang.len() > range.len()
+            && lang.as_bytes()[range.len()] == b'-'
+            && lang[..range.len()].eq_ignore_ascii_case(range))
+}
+
+/// The language to declare for a whole feed.
+///
+/// An explicit [`FeedOptions::language`] wins. Otherwise the language is only
+/// declared when every item has a `lang` and they are all the same (ignoring
+/// case), so a mixed-language feed isn't mislabeled by whichever item happens
+/// to come first.
+fn feed_language(opts: &FeedOptions<'_>, meta: &[ItemMeta]) -> Option<String> {
+    if let Some(language) = opts.language {
+        return Some(language.trim().to_string());
+    }
+    let first = meta.first()?.lang.as_deref()?;
+    meta.iter()
+        .all(|m| {
+            m.lang
+                .as_deref()
+                .is_some_and(|l| l.eq_ignore_ascii_case(first))
+        })
+        .then(|| first.to_string())
 }
 
 /// Build the absolute `.html` link for an article, given its `src`-relative
@@ -155,6 +204,7 @@ pub fn paginated_filename(base: &str, page_idx: usize) -> String {
 fn build_channel(
     opts: &FeedOptions<'_>,
     base_url: &str,
+    language: Option<&str>,
     items: &[Item],
     page_idx: usize,
     total_pages: usize,
@@ -196,6 +246,7 @@ fn build_channel(
         .title(opts.title)
         .link(format!("{base_url}/"))
         .description(opts.description)
+        .language(language.map(str::to_string))
         .items(items.to_vec())
         .generator(Some(format!(
             "mdbook-rss-feed {}",
@@ -214,10 +265,13 @@ fn paginate(
     base_url: &str,
 ) -> Vec<FeedPage> {
     let mut pages: Vec<FeedPage> = Vec::new();
+    // Computed once over all items so every page declares the same language.
+    let language = feed_language(opts, meta);
+    let language = language.as_deref();
 
     let should_paginate = opts.paginated && opts.max_items > 0 && items.len() > opts.max_items;
     if !should_paginate {
-        let channel = build_channel(opts, base_url, items, 0, 1);
+        let channel = build_channel(opts, base_url, language, items, 0, 1);
         return vec![FeedPage {
             filename: opts.rss_filename.to_string(),
             channel,
@@ -229,7 +283,14 @@ fn paginate(
     for page_idx in 0..total_pages {
         let start = page_idx * opts.max_items;
         let end = (start + opts.max_items).min(items.len());
-        let channel = build_channel(opts, base_url, &items[start..end], page_idx, total_pages);
+        let channel = build_channel(
+            opts,
+            base_url,
+            language,
+            &items[start..end],
+            page_idx,
+            total_pages,
+        );
         pages.push(FeedPage {
             filename: paginated_filename(opts.rss_filename, page_idx),
             channel,
@@ -248,6 +309,10 @@ fn articles_to_items(
     articles
         .into_iter()
         .filter(|a| article_is_included(a, &opts.default_behavior))
+        .filter(|a| {
+            opts.language
+                .is_none_or(|range| lang_matches(a.fm.lang.as_deref(), range))
+        })
         .map(|article| {
             let link = article_link(base_url, &article.path);
             let preview = render_preview(
@@ -392,6 +457,7 @@ mod tests {
             max_items: 10,
             paginated: false,
             rss_filename: "rss.xml",
+            language: None,
             default_behavior: DefaultBehavior::IncludeAll,
             strict: false,
             author_email: None,
@@ -807,5 +873,175 @@ mod tests {
         let result = build_feed_from_articles(vec![], &opts);
         assert_eq!(result.pages.len(), 1);
         assert_eq!(result.pages[0].channel.items().len(), 0);
+    }
+
+    fn with_lang(mut article: Article, lang: &str) -> Article {
+        article.fm.lang = Some(lang.to_string());
+        article
+    }
+
+    /// One English, one French, one Canadian French, and one untagged post.
+    fn mixed_language_articles() -> Vec<Article> {
+        vec![
+            with_lang(make_article("Hello", "en.md", None, None), "en"),
+            with_lang(make_article("Bonjour", "fr.md", None, None), "fr"),
+            with_lang(make_article("Allo", "fr-ca.md", None, None), "fr-CA"),
+            make_article("Untagged", "none.md", None, None),
+        ]
+    }
+
+    fn titles(result: &BuildResult) -> Vec<String> {
+        result
+            .pages
+            .iter()
+            .flat_map(|p| p.channel.items())
+            .map(|i| i.title().unwrap_or_default().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn lang_matches_uses_basic_filtering() {
+        assert!(lang_matches(Some("fr"), "fr"));
+        assert!(lang_matches(Some("FR"), "fr"));
+        assert!(lang_matches(Some("fr-CA"), "fr"));
+        assert!(lang_matches(Some("fr-ca"), "fr-CA"));
+        assert!(lang_matches(Some(" fr "), "fr"));
+
+        assert!(!lang_matches(Some("fr"), "fr-CA"));
+        assert!(!lang_matches(Some("fra"), "fr"));
+        assert!(!lang_matches(Some("en"), "fr"));
+        assert!(!lang_matches(None, "fr"));
+        assert!(!lang_matches(Some("fr"), ""));
+    }
+
+    #[test]
+    fn no_language_keeps_every_post() {
+        let result = build_feed_from_articles(
+            mixed_language_articles(),
+            &default_opts("https://example.com"),
+        );
+        assert_eq!(titles(&result).len(), 4);
+    }
+
+    #[test]
+    fn language_feed_only_keeps_matching_posts() {
+        let mut opts = default_opts("https://example.com");
+        opts.language = Some("fr");
+        let result = build_feed_from_articles(mixed_language_articles(), &opts);
+        assert_eq!(titles(&result), ["Bonjour", "Allo"]);
+
+        opts.language = Some("en");
+        let result = build_feed_from_articles(mixed_language_articles(), &opts);
+        assert_eq!(titles(&result), ["Hello"]);
+    }
+
+    #[test]
+    fn language_feed_still_respects_default_behavior() {
+        let articles = vec![
+            with_lang(
+                make_article("In", "in.md", None, Some(FeedVisibility::Include)),
+                "fr",
+            ),
+            with_lang(make_article("Out", "out.md", None, None), "fr"),
+        ];
+        let mut opts = default_opts("https://example.com");
+        opts.language = Some("fr");
+        opts.default_behavior = DefaultBehavior::ExcludeAll;
+        let result = build_feed_from_articles(articles, &opts);
+        assert_eq!(titles(&result), ["In"]);
+    }
+
+    #[test]
+    fn language_feed_declares_its_language_on_every_page() {
+        let articles: Vec<Article> = (0..11)
+            .map(|i| {
+                with_lang(
+                    make_article(&format!("P{i}"), &format!("{i}.md"), None, None),
+                    "fr",
+                )
+            })
+            .collect();
+        let mut opts = default_opts("https://example.com");
+        opts.language = Some("fr");
+        opts.paginated = true;
+        opts.max_items = 5;
+        let result = build_feed_from_articles(articles, &opts);
+        assert_eq!(result.pages.len(), 3);
+        for page in &result.pages {
+            assert_eq!(page.channel.language(), Some("fr"));
+        }
+    }
+
+    #[test]
+    fn language_feed_declares_configured_range_for_mixed_regions() {
+        // Items are `fr` and `fr-CA`, so the feed is labeled with the range.
+        let mut opts = default_opts("https://example.com");
+        opts.language = Some("fr");
+        let result = build_feed_from_articles(mixed_language_articles(), &opts);
+        assert_eq!(result.pages[0].channel.language(), Some("fr"));
+    }
+
+    #[test]
+    fn mixed_feed_declares_no_language() {
+        let result = build_feed_from_articles(
+            mixed_language_articles(),
+            &default_opts("https://example.com"),
+        );
+        assert_eq!(result.pages[0].channel.language(), None);
+    }
+
+    #[test]
+    fn single_language_feed_declares_language_without_option() {
+        let articles = vec![
+            with_lang(make_article("A", "a.md", None, None), "de"),
+            with_lang(make_article("B", "b.md", None, None), "DE"),
+        ];
+        let result = build_feed_from_articles(articles, &default_opts("https://example.com"));
+        assert_eq!(result.pages[0].channel.language(), Some("de"));
+    }
+
+    #[test]
+    fn untagged_item_prevents_declaring_language() {
+        let articles = vec![
+            with_lang(make_article("A", "a.md", None, None), "de"),
+            make_article("B", "b.md", None, None),
+        ];
+        let result = build_feed_from_articles(articles, &default_opts("https://example.com"));
+        assert_eq!(result.pages[0].channel.language(), None);
+    }
+
+    #[test]
+    fn language_appears_in_rss_output() {
+        let mut opts = default_opts("https://example.com");
+        opts.language = Some("fr");
+        let result = build_feed_from_articles(mixed_language_articles(), &opts);
+        assert!(
+            result.pages[0]
+                .channel
+                .to_string()
+                .contains("<language>fr</language>")
+        );
+    }
+
+    #[cfg(feature = "json-feed")]
+    #[test]
+    fn json_feed_language_follows_channel_language() {
+        use crate::json_feed::rss_to_json_feed;
+
+        let result = build_feed_from_articles(
+            mixed_language_articles(),
+            &default_opts("https://example.com"),
+        );
+        let page = &result.pages[0];
+        let json = rss_to_json_feed(&page.channel, None, None, &page.item_meta, None, None);
+        assert_eq!(json.language, None);
+
+        let mut opts = default_opts("https://example.com");
+        opts.language = Some("en");
+        let result = build_feed_from_articles(mixed_language_articles(), &opts);
+        let page = &result.pages[0];
+        let json = rss_to_json_feed(&page.channel, None, None, &page.item_meta, None, None);
+        assert_eq!(json.language.as_deref(), Some("en"));
+        assert_eq!(json.items.len(), 1);
     }
 }

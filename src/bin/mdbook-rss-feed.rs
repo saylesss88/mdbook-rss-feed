@@ -184,6 +184,7 @@ impl FeedConfig {
             max_items: self.max_items,
             paginated: self.paginated,
             rss_filename: &self.output_filenames.rss,
+            language: None,
             default_behavior: self.default_behavior.clone(),
             strict: self.strict,
             author_email: self.author_email.clone(),

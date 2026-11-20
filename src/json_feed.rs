@@ -29,6 +29,10 @@ pub struct JsonFeed {
     pub favicon: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_url: Option<String>,
+    /// BCP-47 language tag for the whole feed, per JSON Feed 1.1 spec. Only
+    /// set for single-language feeds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
     pub items: Vec<JsonFeedItem>,
 }
 
@@ -110,6 +114,7 @@ pub fn rss_to_json_feed(
         icon: icon.map(str::to_string),
         favicon: favicon.map(str::to_string),
         next_url: next_url.map(str::to_string),
+        language: channel.language().map(str::to_string),
         items,
     }
 }
