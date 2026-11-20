@@ -1,6 +1,6 @@
 //! YAML frontmatter parsing for mdBook chapters.
 
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use jiff::{Timestamp, fmt::strtime, tz::TimeZone};
 use serde::{Deserialize, Deserializer};
 
 /// Per-chapter feed inclusion control, set via the `feed` frontmatter key.
@@ -14,8 +14,41 @@ pub enum FeedVisibility {
     Exclude,
 }
 
+/// `date --rfc-3339=seconds` style formats: a space instead of `T`, with or
+/// without a space before the offset, and with or without a colon in it.
+/// (`%z` rejects a colon and `%:z` requires one.)
+const SPACE_SEPARATED_FORMATS: [&str; 3] = [
+    "%Y-%m-%d %H:%M:%S%z",
+    "%Y-%m-%d %H:%M:%S %z",
+    "%Y-%m-%d %H:%M:%S %:z",
+];
+
+/// Parse a frontmatter date string.
+///
+/// Accepts RFC 3339 (`2024-07-04T12:00:00Z`, `2024-07-04T12:00:00+02:00`),
+/// the space-separated `date --rfc-3339=seconds` output
+/// (`2024-07-04 12:00:00+02:00`), and a bare `YYYY-MM-DD`, which is taken as
+/// midnight UTC.
+fn parse_date(date_str: &str) -> Option<Timestamp> {
+    if let Ok(ts) = date_str.parse::<Timestamp>() {
+        return Some(ts);
+    }
+    if let Some(ts) = SPACE_SEPARATED_FORMATS
+        .iter()
+        .find_map(|fmt| strtime::parse(fmt, date_str).ok()?.to_timestamp().ok())
+    {
+        return Some(ts);
+    }
+    let date = strtime::parse("%Y-%m-%d", date_str).ok()?.to_date().ok()?;
+    Some(date.to_zoned_datetime(TimeZone::UTC).ok()?.timestamp())
+}
+
 /// Parse front-matter date formats (RFC3339 or `YYYY-MM-DD`).
-pub fn deserialize_date<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
+///
+/// # Errors
+/// Returns a deserialization error if the date is present but in none of the
+/// supported formats.
+pub fn deserialize_date<'de, D>(deserializer: D) -> Result<Option<Timestamp>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -24,26 +57,11 @@ where
         return Ok(None);
     };
 
-    if let Ok(dt) = DateTime::parse_from_rfc3339(&date_str) {
-        return Ok(Some(dt.with_timezone(&Utc)));
-    }
-    // Handle `date --rfc-3339=second` output format (space instead of T separator).
-    if let Ok(dt) = DateTime::parse_from_str(&date_str, "%Y-%m-%d %H:%M:%S%z") {
-        return Ok(Some(dt.with_timezone(&Utc)));
-    }
-    if let Ok(nd) = NaiveDate::parse_from_str(&date_str, "%Y-%m-%d") {
-        // NaiveDate::and_hms_opt(0, 0, 0) only fails for an invalid hms,
-        // which 0,0,0 never is, so this expect documents an invariant
-        // rather than a real failure mode.
-        let midnight = nd
-            .and_hms_opt(0, 0, 0)
-            .expect("midnight is always a valid time");
-        return Ok(Some(Utc.from_utc_datetime(&midnight)));
-    }
-
-    Err(serde::de::Error::custom(format!(
-        "invalid date '{date_str}': expected RFC3339 or YYYY-MM-DD"
-    )))
+    parse_date(&date_str).map(Some).ok_or_else(|| {
+        serde::de::Error::custom(format!(
+            "invalid date '{date_str}': expected RFC3339 or YYYY-MM-DD"
+        ))
+    })
 }
 
 /// Raw deserialization target. `title` is optional so that a chapter with
@@ -52,7 +70,7 @@ where
 struct RawFrontmatter {
     title: Option<String>,
     #[serde(deserialize_with = "deserialize_date", default)]
-    date: Option<DateTime<Utc>>,
+    date: Option<Timestamp>,
     author: Option<String>,
     #[serde(rename = "author-email")]
     author_email: Option<String>,
@@ -76,7 +94,7 @@ struct RawFrontmatter {
 #[derive(Debug, Clone)]
 pub struct FrontMatter {
     pub title: String,
-    pub date: Option<DateTime<Utc>>,
+    pub date: Option<Timestamp>,
     pub author: Option<String>,
     pub author_email: Option<String>,
     /// User-supplied summary, used as a fallback preview source.
@@ -177,7 +195,7 @@ fn split_frontmatter(raw: &str) -> (Option<String>, String) {
 pub fn parse_frontmatter(
     raw: &str,
     title_hint: &str,
-    fallback_date: Option<DateTime<Utc>>,
+    fallback_date: Option<Timestamp>,
     strict: bool,
 ) -> (FrontMatter, String) {
     let (yaml_opt, body) = split_frontmatter(raw);
@@ -322,7 +340,7 @@ mod tests {
         let raw = "---\ndate: 2024-03-15T12:00:00Z\n---\n\nContent.";
         let (fm, _) = parse_frontmatter(raw, "hint", None, false);
         let date = fm.date.expect("should have parsed date");
-        assert_eq!(date.format("%Y-%m-%d").to_string(), "2024-03-15");
+        assert_eq!(day(date), "2024-03-15");
     }
 
     #[test]
@@ -330,7 +348,7 @@ mod tests {
         let raw = "---\ndate: 2023-11-30\n---\n\nContent.";
         let (fm, _) = parse_frontmatter(raw, "hint", None, false);
         let date = fm.date.expect("should have parsed date");
-        assert_eq!(date.format("%Y-%m-%d").to_string(), "2023-11-30");
+        assert_eq!(day(date), "2023-11-30");
     }
 
     #[test]
@@ -390,8 +408,7 @@ mod tests {
 
     #[test]
     fn parse_frontmatter_fallback_date_used_when_no_yaml_date() {
-        use chrono::TimeZone;
-        let fallback = chrono::Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
+        let fallback: Timestamp = "2020-01-01T00:00:00Z".parse().unwrap();
         let raw = "---\ntitle: No Date\n---\n\nContent.";
         let (fm, _) = parse_frontmatter(raw, "hint", Some(fallback), false);
         assert_eq!(fm.date, Some(fallback));
@@ -399,13 +416,12 @@ mod tests {
 
     #[test]
     fn parse_frontmatter_yaml_date_overrides_fallback() {
-        use chrono::TimeZone;
-        let fallback = chrono::Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
+        let fallback: Timestamp = "2020-01-01T00:00:00Z".parse().unwrap();
         let raw = "---\ntitle: Has Date\ndate: 2024-06-15\n---\n\nContent.";
         let (fm, _) = parse_frontmatter(raw, "hint", Some(fallback), false);
         let date = fm.date.expect("should have a date");
         // Should be 2024-06-15, not the 2020 fallback.
-        assert_eq!(date.format("%Y-%m-%d").to_string(), "2024-06-15");
+        assert_eq!(day(date), "2024-06-15");
     }
 
     #[test]
@@ -418,15 +434,55 @@ mod tests {
         assert!(body.contains("Content."));
     }
 
+    /// The UTC calendar day of `ts`, as `YYYY-MM-DD`.
+    fn day(ts: Timestamp) -> String {
+        ts.strftime("%Y-%m-%d").to_string()
+    }
+
+    #[test]
+    fn parse_date_accepts_every_supported_format() {
+        for (input, expected) in [
+            ("2024-07-04T12:00:00Z", "2024-07-04T12:00:00Z"),
+            ("2024-07-04t12:00:00z", "2024-07-04T12:00:00Z"),
+            ("2024-07-04T12:00:00.5+02:00", "2024-07-04T10:00:00.5Z"),
+            ("2024-07-04T12:00:00-05:30", "2024-07-04T17:30:00Z"),
+            ("2024-07-04 12:00:00+02:00", "2024-07-04T10:00:00Z"),
+            ("2024-07-04 12:00:00+0200", "2024-07-04T10:00:00Z"),
+            ("2024-07-04 12:00:00 +02:00", "2024-07-04T10:00:00Z"),
+            ("2024-07-04 12:00:00 +0200", "2024-07-04T10:00:00Z"),
+            ("2024-07-04", "2024-07-04T00:00:00Z"),
+            ("2024-7-4", "2024-07-04T00:00:00Z"),
+        ] {
+            assert_eq!(
+                parse_date(input).map(|ts| ts.to_string()).as_deref(),
+                Some(expected),
+                "{input:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_date_rejects_unsupported_formats() {
+        for input in [
+            "",
+            "not a date",
+            "2024/07/04",
+            "2024-02-30",
+            "2024-13-01",
+            "2024-07-04T12:00:00",
+            "2024-07-04 12:00:00",
+            "Thu, 04 Jul 2024 00:00:00 +0000",
+        ] {
+            assert_eq!(parse_date(input), None, "{input:?}");
+        }
+    }
+
     #[test]
     fn deserialize_date_accepts_rfc3339() {
         let raw = "---\ndate: 2024-07-04T00:00:00Z\n---\n\nContent.";
         let (fm, _) = parse_frontmatter(raw, "hint", None, false);
         assert!(fm.date.is_some());
-        assert_eq!(
-            fm.date.unwrap().format("%Y-%m-%d").to_string(),
-            "2024-07-04"
-        );
+        assert_eq!(day(fm.date.unwrap()), "2024-07-04");
     }
 
     #[test]
@@ -434,9 +490,6 @@ mod tests {
         let raw = "---\ndate: 2024-07-04\n---\n\nContent.";
         let (fm, _) = parse_frontmatter(raw, "hint", None, false);
         assert!(fm.date.is_some());
-        assert_eq!(
-            fm.date.unwrap().format("%Y-%m-%d").to_string(),
-            "2024-07-04"
-        );
+        assert_eq!(day(fm.date.unwrap()), "2024-07-04");
     }
 }

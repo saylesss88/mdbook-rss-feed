@@ -458,16 +458,15 @@ impl OutputFilenames {
         let mut problems = Vec::new();
 
         let mut valid_or_default = |key: &str, name: &str, default: &str| {
-            if let Some(reason) = invalid_filename_reason(name) {
-                problems.push(format!(
-                    "mdbook-rss-feed: invalid `{key}` value {name:?} ({reason})"
-                ));
+            invalid_filename_reason(name)
+                .map_or(name, |reason| {
+                    problems.push(format!(
+                        "mdbook-rss-feed: invalid `{key}` value {name:?} ({reason})"
+                    ));
 
-                default
-            } else {
-                name
-            }
-            .to_string()
+                    default
+                })
+                .to_string()
         };
 
         let names = Self {

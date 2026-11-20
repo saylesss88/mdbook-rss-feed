@@ -6,9 +6,8 @@
 
 use atom_syndication::{
     Category as AtomCategory, Content as AtomContent, Entry as AtomEntry, Feed as AtomFeed,
-    Link as AtomLink, Person as AtomPerson, Text as AtomText,
+    FixedDateTime, Link as AtomLink, Person as AtomPerson, Text as AtomText,
 };
-use chrono::DateTime;
 use rss::Channel;
 
 use crate::feed::ItemMeta;
@@ -52,7 +51,9 @@ fn build_entry(item: &rss::Item, meta: &ItemMeta) -> AtomEntry {
     }
     if let Some(dt) = item
         .pub_date()
-        .and_then(|d| DateTime::parse_from_rfc2822(d).ok())
+        // `atom_syndication` takes chrono dates, so parse with its type alias
+        // rather than converting from jiff.
+        .and_then(|d| FixedDateTime::parse_from_rfc2822(d).ok())
     {
         entry.set_updated(dt);
     } else {
@@ -88,8 +89,8 @@ fn build_entry(item: &rss::Item, meta: &ItemMeta) -> AtomEntry {
 ///  The Atom spec requires a feed-level `<updated>` element. Using the Unix
 /// epoch (`1970-01-01`) triggers a validator warning ("implausible date"), so
 /// we fall back to a fixed but reasonable date instead.
-fn fallback_updated() -> DateTime<chrono::FixedOffset> {
-    DateTime::parse_from_rfc3339("2000-01-01T00:00:00Z")
+fn fallback_updated() -> FixedDateTime {
+    FixedDateTime::parse_from_rfc3339("2000-01-01T00:00:00Z")
         .expect("hardcoded RFC3339 date is always valid")
 }
 

@@ -3,7 +3,6 @@
 //! Enabled by the `json-feed` cargo feature. Converts an RSS [`Channel`]
 //! into a minimal JSON Feed 1.1 document.
 
-use chrono::DateTime;
 use rss::Channel;
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -96,8 +95,12 @@ pub fn rss_to_json_feed(
                 content_html: item.description().map(str::to_string),
                 date_published: item
                     .pub_date()
-                    .and_then(|d| DateTime::parse_from_rfc2822(d).ok())
-                    .map(|dt| dt.to_rfc3339()),
+                    .and_then(|d| jiff::fmt::rfc2822::parse(d).ok())
+                    .map(|zdt| {
+                        zdt.timestamp()
+                            .display_with_offset(zdt.offset())
+                            .to_string()
+                    }),
                 author,
                 tags: meta.tags,
                 language: meta.lang,

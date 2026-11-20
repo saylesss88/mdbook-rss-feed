@@ -2,10 +2,7 @@
 
 use std::{collections::BTreeMap, path::Path, str::FromStr};
 
-use rss::{
-    Channel, ChannelBuilder, Guid, Item, ItemBuilder,
-    extension::{Extension, ExtensionBuilder},
-};
+use rss::{Channel, Guid, Item, extension::Extension};
 
 use crate::{
     article::{Article, collect_articles},
@@ -171,10 +168,11 @@ fn atom_link(href: &str, rel: &str) -> Extension {
     let mut attrs = BTreeMap::new();
     attrs.insert("href".to_string(), href.to_string());
     attrs.insert("rel".to_string(), rel.to_string());
-    ExtensionBuilder::default()
-        .name("atom:link".to_string())
-        .attrs(attrs)
-        .build()
+    Extension {
+        name: "atom:link".to_string(),
+        attrs,
+        ..Extension::default()
+    }
 }
 
 /// Compute the paginated filename for a base name and zero-based page index.
@@ -242,19 +240,19 @@ fn build_channel(
     let mut extensions = BTreeMap::new();
     extensions.insert("atom".to_string(), inner);
 
-    ChannelBuilder::default()
-        .title(opts.title)
-        .link(format!("{base_url}/"))
-        .description(opts.description)
-        .language(language.map(str::to_string))
-        .items(items.to_vec())
-        .generator(Some(format!(
-            "mdbook-rss-feed {}",
-            env!("CARGO_PKG_VERSION")
-        )))
-        .namespaces(namespaces)
-        .extensions(extensions)
-        .build()
+    let mut channel = Channel::default();
+    channel.set_title(opts.title);
+    channel.set_link(format!("{base_url}/"));
+    channel.set_description(opts.description);
+    channel.set_language(language.map(str::to_string));
+    channel.set_items(items.to_vec());
+    channel.set_generator(Some(format!(
+        "mdbook-rss-feed {}",
+        env!("CARGO_PKG_VERSION")
+    )));
+    channel.set_namespaces(namespaces);
+    channel.set_extensions(extensions);
+    channel
 }
 
 /// Split `items` into one or more [`FeedPage`]s according to `opts`.
@@ -323,18 +321,19 @@ fn articles_to_items(
                 Some(&link),
             );
 
-            let mut item = ItemBuilder::default();
-            item.title(Some(article.fm.title.clone()));
-            item.link(Some(link.clone()));
-            item.description(Some(preview));
-            item.guid(Some(Guid {
+            let mut item = Item::default();
+            item.set_title(Some(article.fm.title.clone()));
+            item.set_link(Some(link.clone()));
+            item.set_description(Some(preview));
+            item.set_guid(Some(Guid {
                 value: link,
                 permalink: true,
             }));
             if let Some(date) = article.fm.date {
-                // chrono's to_rfc2822() doesn't zero-pad single-digit days,
-                // violating RFC 2822. Format manually to ensure compliance.
-                item.pub_date(Some(date.format("%a, %d %b %Y %T %z").to_string()));
+                // Formatted by hand so the day is always two digits and the
+                // offset is `+0000`, as RFC 822/2822 dates in RSS expect.
+                // `Timestamp::strftime` formats in UTC.
+                item.set_pub_date(Some(date.strftime("%a, %d %b %Y %T %z").to_string()));
             }
 
             // Resolve author: per-chapter > book-level authors[0]
@@ -350,7 +349,7 @@ fn articles_to_items(
 
             if let Some(ref author) = resolved_author {
                 if let Some(ref email) = resolved_email {
-                    item.author(Some(format!("{email} ({author})")));
+                    item.set_author(Some(format!("{email} ({author})")));
                 } else if chapter_author.is_some() {
                     let msg = format!(
                         "mdbook-rss-feed: chapter '{}' has `author` in frontmatter \
@@ -366,7 +365,7 @@ fn articles_to_items(
             }
 
             if !article.fm.tags.is_empty() {
-                item.categories(
+                item.set_categories(
                     article
                         .fm
                         .tags
@@ -385,7 +384,7 @@ fn articles_to_items(
                 author_email: resolved_email,
                 id: article.fm.id,
             };
-            (item.build(), meta)
+            (item, meta)
         })
         .unzip()
 }
@@ -426,11 +425,7 @@ mod tests {
         date: Option<&str>,
         feed: Option<FeedVisibility>,
     ) -> Article {
-        let date = date.and_then(|d| {
-            chrono::DateTime::parse_from_rfc3339(d)
-                .ok()
-                .map(|dt| dt.with_timezone(&chrono::Utc))
-        });
+        let date = date.and_then(|d| d.parse::<jiff::Timestamp>().ok());
         Article {
             fm: FrontMatter {
                 title: title.to_string(),

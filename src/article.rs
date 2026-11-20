@@ -2,16 +2,17 @@
 
 use std::{fs, path::Path, time::SystemTime};
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use serde_json::Value;
 use walkdir::WalkDir;
 
 use crate::error::{FeedError, Result};
 use crate::frontmatter::{FrontMatter, parse_frontmatter};
 
-/// Convert file modification time to UTC.
-fn systemtime_to_utc(st: SystemTime) -> DateTime<Utc> {
-    DateTime::<Utc>::from(st)
+/// Convert a file modification time to a [`Timestamp`], or `None` if it's
+/// outside the range jiff supports (years -9999 to 9999).
+fn systemtime_to_timestamp(st: SystemTime) -> Option<Timestamp> {
+    Timestamp::try_from(st).ok()
 }
 
 /// A chapter plus its parsed metadata.
@@ -117,7 +118,7 @@ pub fn parse_markdown_file(root: &Path, path: &Path, strict: bool) -> Result<Art
         .metadata()
         .ok()
         .and_then(|m| m.modified().ok())
-        .map(systemtime_to_utc);
+        .and_then(systemtime_to_timestamp);
 
     let title_hint = path.file_stem().map_or_else(
         || "untitled".to_string(),
