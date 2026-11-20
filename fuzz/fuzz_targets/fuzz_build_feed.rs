@@ -40,9 +40,14 @@ fuzz_target!(|input: Input| {
         full_preview: input.full_preview,
         max_items: 0,
         paginated: false,
+        rss_filename: "rss.xml",
+        language: None,
         default_behavior: DefaultBehavior::IncludeAll,
         strict: false,
         author_email: None,
+        book_author: None,
+        icon: None,
+        favicon: None,
     };
 
     let result = build_feed_from_articles(articles, &opts);
