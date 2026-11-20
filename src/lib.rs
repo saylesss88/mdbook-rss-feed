@@ -22,7 +22,7 @@ pub use atom_feed::rss_to_atom;
 pub use error::{FeedError, Result};
 pub use feed::{
     BuildResult, DefaultBehavior, FeedOptions, FeedPage, ItemMeta, build_feed,
-    build_feed_from_articles,
+    build_feed_from_articles, paginated_filename,
 };
 pub use frontmatter::{FeedVisibility, FrontMatter, first_h1, parse_frontmatter, resolve_title};
 #[cfg(feature = "json-feed")]
