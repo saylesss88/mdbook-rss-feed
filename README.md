@@ -23,6 +23,8 @@ for.
   discovery links so feed readers can find adjacent pages
 - Optional Atom (`atom.xml`) and JSON Feed (`feed.json`) output alongside RSS
 - Configurable output filenames for each format
+- Optional extra per-language feeds (e.g. an English feed and a French feed
+  alongside the main feed), filtered by each chapter's `lang`
 - Reads `date:` from frontmatter (RFC3339 or `YYYY-MM-DD`)
 - Works with or without frontmatter; zero-config by default
 - `strict = true` mode fails the build immediately on any frontmatter parse
@@ -217,13 +219,71 @@ tags:
 - `tags` in frontmatter to populate `<category>` elements in RSS and Atom, and
   the `tags` array in JSON Feed 1.1.
 - `lang`: BCP-47 language tag for the chapter (e.g. `en`, `fr`, `en-US`).
-  Appears as `"language"` per item in JSON Feed and as `xml:lang` on the feed
-  element in Atom. RSS 2.0 only supports language at the feed level, so this
-  field has no effect on `rss.xml`.
+  Appears as `"language"` per item in JSON Feed. The feed itself (RSS
+  `<language>`, Atom `xml:lang`, JSON Feed top-level `language`) only declares
+  a language when every item in it has the same `lang`, or when it's a
+  [language feed](#language-feeds). `lang` is also what language feeds filter
+  on.
 
 There is a new companion crate to this one that can auto inject frontmatter into
 all chapters at once:
 [mdbook-frontmatter-fix](https://crates.io/crates/mdbook-frontmatter-fix)
+
+### Language feeds
+
+<details>
+<summary> ✔️ Click to Expand Language Feeds </summary>
+
+If you write in more than one language, you can publish an extra feed per
+language next to the main feed. Add one `[[preprocessor.rss-feed.feeds]]` table
+per language:
+
+```toml
+[preprocessor.rss-feed]
+# ... main feed settings ...
+
+[[preprocessor.rss-feed.feeds]]
+lang = "fr"
+title = "Mon blog"
+description = "Articles en français"
+
+[[preprocessor.rss-feed.feeds]]
+lang = "en"
+title = "My blog"
+description = "Articles in English"
+```
+
+Then tag each chapter with `lang:` in its frontmatter. With the config above you
+get:
+
+| Feed       | Contains                         | Files (with Atom and JSON Feed on)          |
+| ---------- | -------------------------------- | ------------------------------------------- |
+| Main (all) | every chapter, as before         | `rss.xml`, `atom.xml`, `feed.json`          |
+| French     | chapters with `lang: fr`, `fr-*` | `rss-fr.xml`, `atom-fr.xml`, `feed-fr.json` |
+| English    | chapters with `lang: en`, `en-*` | `rss-en.xml`, `atom-en.xml`, `feed-en.json` |
+
+- `lang` (required) matches case-insensitively, and also matches more specific
+  tags: `lang = "fr"` includes chapters marked `fr` and `fr-CA`, while
+  `lang = "fr-CA"` only includes `fr-CA`. Chapters without `lang` only appear in
+  the main feed.
+- `title` and `description` are optional. When left out, the main feed's
+  values are used.
+- Filenames default to the main feed's names with `-<lang>` added before the
+  extension, so they follow `rss-filename` and friends. For example, with
+  `rss-filename = "feed.xml"` the French RSS feed is `feed-fr.xml`. Override
+  them per feed with `rss-filename`, `atom-filename`, and `json-feed-filename`;
+  the same naming rules apply as for the main feed.
+- Everything else (`paginated`, `max-items`, `full-preview`, `atom`,
+  `json-feed`, `default-behavior`, author settings) follows the main feed, and
+  `feed: exclude` still hides a chapter from every feed.
+- Each language feed declares its language (RSS `<language>`, Atom `xml:lang`,
+  JSON Feed `language`).
+- An entry with a missing or invalid `lang`, an unknown key, or a filename that
+  is invalid or collides with another feed is skipped with a warning (or fails
+  the build with `strict = true`). A language feed that matches no chapters is
+  still written, with a warning, since a typo in `lang` is the usual cause.
+
+</details>
 
 ### Feed visibility
 
@@ -293,7 +353,8 @@ strict = true
 With `strict = true`, any chapter whose frontmatter cannot be parsed will cause
 `mdbook build` to exit with a non-zero code. This is useful in CI pipelines
 where a silent fallback would produce a wrong feed without any visible failure.
-Strict mode also fails the build on an invalid or colliding output filename.
+Strict mode also fails the build on an invalid or colliding output filename, or
+an invalid `[[preprocessor.rss-feed.feeds]]` entry.
 
 Without strict mode, check stderr output during mdbook build for lines starting
 with `mdbook-rss-feed: warning:` to catch parse issues manually.
