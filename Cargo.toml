@@ -13,7 +13,18 @@ categories = [
   "web-programming",
 ]
 documentation = "https://docs.rs/mdbook-rss-feed"
-exclude = [".github/*", ".gitignore", "book/*"]
+exclude = [
+  ".envrc",
+  ".github/",
+  ".jj/",
+  "example/",
+  "flake.lock",
+  "flake.nix",
+  "fuzz/",
+  "mdbook-rss-feed-aur/",
+  "release.toml",
+  "rustfmt.toml",
+]
 rust-version = "1.88"
 
 [lib]
