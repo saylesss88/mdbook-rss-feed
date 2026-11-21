@@ -41,6 +41,9 @@ cargo install mdbook-rss-feed
 
 # RSS + Atom + JSON Feed
 cargo install mdbook-rss-feed --features atom,json-feed
+
+# pre-compiled binaries
+cargo binstall mdbook-rss-feed
 ```
 
 | Feature     | Enables                                |
